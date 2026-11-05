@@ -188,37 +188,55 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--accent);outline
 
 body{padding:16px} .wrap{max-width:460px;margin:0 auto;display:grid;gap:14px} .seg{display:flex;gap:6px} .seg button{flex:1}
 </style></head><body><div class="wrap">
-<div class="top"><div class="brandrow"><div class="logo" role="img" aria-label="Dibidup Music"></div><div class="brand"><small>Dibidup Music · test page v3</small>Tuner</div></div></div>
+<div class="top"><div class="brandrow"><div class="logo" role="img" aria-label="Dibidup Music"></div><div class="brand"><small>Dibidup Music · test page v4</small>Tuner</div></div></div>
 <div class="card"><p class="muted" style="margin:0 0 10px">Test page for the tuner of the Guitar, Bass and Ukulele apps. Choose the instrument, then open the tuner.</p>
 <div class="seg"><button class="btn" data-i="guitar">Guitar</button><button class="btn ghost" data-i="bass">Bass</button><button class="btn ghost" data-i="uke">Ukulele</button></div>
 <div id="row"></div></div></div>
 <script>const $=id=>document.getElementById(id);const MODE='guitar';function gcEvt(){}
 // ---------------- afinador por micrófono (guitarra, bajo, ukelele). Todo se analiza en el móvil; no se graba nada.
+// Diseño: arco de −50 a +50 cents, nota grande con su octava y el clavijero del instrumento con una etiqueta por cuerda.
 let TUN_INST = 'guitar';
-let TUN_STR = {guitar: [['E', 40], ['A', 45], ['D', 50], ['G', 55], ['B', 59], ['E', 64]], bass: [['E', 28], ['A', 33], ['D', 38], ['G', 43]],
-  uke: [['G', 67], ['C', 60], ['E', 64], ['A', 69]]}[TUN_INST] || null;
-const TUN_ALL = {guitar: [['E', 40], ['A', 45], ['D', 50], ['G', 55], ['B', 59], ['E', 64]], bass: [['E', 28], ['A', 33], ['D', 38], ['G', 43]], uke: [['G', 67], ['C', 60], ['E', 64], ['A', 69]]};
+// cada cuerda: nombre, octava, MIDI, lado de la etiqueta, fila (y en la imagen) y punta de la clavija (x en la imagen de 1199 de ancho)
+const TUN_ALLSETS = {
+  guitar: [{id: 'std', label: 'Guitar · Standard', img: 'tuner_guitar.jpg', h: 707, s: [
+    ['E', 2, 40, 'L', 337, 279], ['A', 2, 45, 'L', 230, 305], ['D', 3, 50, 'L', 122, 330], ['G', 3, 55, 'R', 122, 876], ['B', 3, 59, 'R', 230, 904], ['E', 4, 64, 'R', 337, 931]]}],
+  bass: [{id: 'b4', label: 'Bass · 4 strings', img: 'tuner_bass4.jpg', h: 752, s: [
+      ['E', 1, 28, 'L', 441, 258], ['A', 1, 33, 'L', 331, 311], ['D', 2, 38, 'L', 226, 352], ['G', 2, 43, 'L', 123, 392]]},
+    {id: 'b5', label: 'Bass · 5 strings', img: 'tuner_bass5.jpg', h: 764, s: [
+      ['B', 0, 23, 'L', 505, 241], ['E', 1, 28, 'L', 397, 272], ['A', 1, 33, 'L', 294, 308], ['D', 2, 38, 'L', 190, 344], ['G', 2, 43, 'L', 88, 379]]},
+    {id: 'b6', label: 'Bass · 6 strings', img: 'tuner_bass6.jpg', h: 762, s: [
+      ['B', 0, 23, 'L', 386, 283], ['E', 1, 28, 'L', 251, 308], ['A', 1, 33, 'L', 122, 314], ['D', 2, 38, 'R', 122, 889], ['G', 2, 43, 'R', 251, 894], ['C', 3, 48, 'R', 386, 917]]}],
+  uke: [{id: 'std', label: 'Ukulele · Standard (G C E A)', img: 'tuner_uke.jpg', h: 752, s: [
+    ['G', 4, 67, 'L', 340, 327], ['C', 4, 60, 'L', 166, 323], ['E', 4, 64, 'R', 166, 876], ['A', 4, 69, 'R', 340, 872]]}]};
+let TUN_SETS = TUN_ALLSETS[TUN_INST];
+let TUN_SET = TUN_SETS ? TUN_SETS[0] : null;
+try { const k = localStorage.getItem('dm-tun-' + TUN_INST); if (k && TUN_SETS) TUN_SET = TUN_SETS.find(x => x.id === k) || TUN_SET; } catch (e) {}
 let TUN_NAME = {guitar: 'guitar', bass: 'bass', uke: 'ukulele'}[TUN_INST] || 'instrument';
 const TUN_NN = ['C', 'C♯', 'D', 'E♭', 'E', 'F', 'F♯', 'G', 'A♭', 'A', 'B♭', 'B'];
 let TUN = null;
 function tunCss() { if (document.getElementById('tuncss')) return; const c = document.createElement('style'); c.id = 'tuncss';
-  c.textContent = '#tun{position:fixed;inset:0;z-index:60;background:rgba(10,9,8,.86);display:grid;place-items:center;padding:16px;overflow:auto}#tun .tp{margin:auto 0}' +
-    '#tun .tp{width:min(440px,100%);background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:18px;display:grid;gap:14px}' +
-    '#tun .th{display:flex;justify-content:space-between;align-items:center}#tun .th b{font:700 20px var(--display)}' +
-    '#tun .ts{display:flex;gap:5px;justify-content:center}#tun .ts button{flex:1;min-width:0;padding:4px 0;min-height:48px;line-height:1.05;border-radius:12px;border:1px solid var(--line);background:var(--bg);color:var(--fg);font-weight:700;cursor:pointer}' +
-    '#tun .ts button.on{background:var(--accent);color:var(--accent-fg);border-color:var(--accent)}#tun .ts button.auto{flex:none;padding:0 18px}#tun .ts button small{display:block;font:600 10px var(--body);opacity:.65}#tun .ts button.hint{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}' +
-    '#tun .tn{text-align:center;font:800 64px var(--display);line-height:1}#tun .tn small{display:block;font:600 14px var(--body);color:var(--muted);margin-top:6px}' +
-    '#tun .tm{position:relative;height:56px}#tun .tm .sc{position:absolute;left:0;right:0;top:26px;height:4px;background:var(--line);border-radius:2px}' +
-    '#tun .tm .ok{position:absolute;left:45%;width:10%;top:18px;height:20px;border-radius:6px;background:rgba(110,180,110,.25)}' +
-    '#tun .tm .c0{position:absolute;left:50%;top:10px;width:2px;height:36px;background:var(--muted)}' +
-    '#tun .tm .nd{position:absolute;left:50%;top:4px;width:4px;height:48px;margin-left:-2px;border-radius:2px;background:var(--accent);transition:background .2s}' +
-    '#tun .tm .nd.in{background:#6fbf6f}#tun .tl{display:flex;justify-content:space-between;color:var(--muted);font-size:12px}' +
-    '#tun .tst{text-align:center;min-height:22px;color:var(--muted)}#tun .tst .tgood{color:#6fbf6f;font-weight:700}' +
-    '#tun .tlv{height:6px;border-radius:3px;background:var(--line);overflow:hidden}#tun .tlv i{display:block;height:100%;width:0;background:var(--muted);transition:width .08s}#tun .ts{align-items:center;gap:10px}#tun .ts .auto{flex:none;min-width:72px}#tun .tsh{flex:1;color:var(--muted);font-size:13px;line-height:1.3}#tun .tsg{display:grid;gap:2px;background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:6px 10px}#tun .sr{display:grid;grid-template-columns:62px 1fr 64px;align-items:center;gap:8px;min-height:32px;cursor:pointer;border-radius:8px;padding:0 4px}#tun .sr b{font:700 15px var(--display)}#tun .sr small{color:var(--muted);font-size:11px;text-align:right}#tun .sr i{display:block;border-radius:3px;background:linear-gradient(#e9e3d6,#9c968a)}#tun .sr.w i{background:repeating-linear-gradient(90deg,#c9a46a 0 2px,#8a6b3a 2px 3px)}#tun .sr.hint{background:rgba(201,162,77,.14)}#tun .sr.hint i{box-shadow:0 0 8px var(--accent)}#tun .sr.on{background:var(--accent);color:var(--accent-fg)}#tun .sr.on small{color:var(--accent-fg)}#tun .tmic{justify-content:center;min-height:52px;font-size:17px}#tun .tmic[hidden]{display:none}#tun .tst small{display:block;margin-top:6px;line-height:1.45}' +
-    '#tun .tb{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}.trow{display:flex;gap:12px;align-items:center;margin-top:12px;border-top:1px solid var(--line);padding-top:12px;color:inherit;background:none;border-left:0;border-right:0;border-bottom:0;width:100%;text-align:left;cursor:pointer;font:inherit}' +
-    '.backrow{display:flex;justify-content:space-between;gap:8px;align-items:center}.trow .ti{width:34px;height:34px;flex:none;display:grid;place-items:center;border-radius:50%;background:var(--accent);color:var(--accent-fg);font-weight:800}.trow span{display:grid;gap:2px}.trow small{color:var(--muted)}';
+  c.textContent = '#tun{position:fixed;inset:0;z-index:60;background:#0d0f16;overflow:auto;color:#f2f2f2}' +
+    '#tun .tp{max-width:520px;margin:0 auto;padding:12px 14px 22px;display:grid;gap:8px}' +
+    '#tun .th{display:grid;grid-template-columns:44px 1fr 44px;align-items:center}#tun .th b{text-align:center;font:600 26px var(--display)}' +
+    '#tun .ib{width:44px;height:44px;border-radius:50%;border:0;background:none;color:#f2f2f2;font-size:24px;cursor:pointer;display:grid;place-items:center}' +
+    '#tun .sel{justify-self:center;min-height:44px;padding:0 18px;border-radius:24px;border:1px solid #3a3d47;background:#1a1d26;color:#f2f2f2;font:500 16px var(--body);display:flex;align-items:center;gap:10px}' +
+    '#tun select.sel{appearance:none;-webkit-appearance:none;cursor:pointer;padding-right:36px;background-image:linear-gradient(45deg,transparent 50%,#ccc 50%),linear-gradient(135deg,#ccc 50%,transparent 50%);background-position:calc(100% - 20px) 50%,calc(100% - 14px) 50%;background-size:6px 6px;background-repeat:no-repeat}' +
+    '#tun .mt{width:100%;display:block}#tun .mt text{fill:#bfc2cc;font:500 15px var(--body)}#tun .mt .z{fill:#f2f2f2;font-size:20px}' +
+    '#tun .nn{text-align:center;font:800 84px/0.95 var(--display);margin-top:-14px;color:#f2f2f2;transition:color .2s}#tun .nn sub{font-size:.42em;vertical-align:baseline;margin-left:2px}#tun .nn.ok{color:#44e86a;text-shadow:0 0 24px rgba(68,232,106,.35)}' +
+    '#tun .st{display:flex;justify-content:center;align-items:center;gap:10px;min-height:30px;font:500 17px var(--body);color:#cfd2da}#tun .st .ck{width:28px;height:28px;border-radius:50%;background:#44e86a;display:none;place-items:center;color:#0d0f16;font-weight:900}#tun .st.ok .ck{display:grid}' +
+    '#tun .hs{position:relative;width:100%}#tun .hs img{position:absolute;top:0;height:100%;left:18.52%;width:62.97%;object-fit:cover;-webkit-mask:linear-gradient(90deg,transparent,#000 8%,#000 92%,transparent);mask:linear-gradient(90deg,transparent,#000 8%,#000 92%,transparent)}' +
+    '#tun .hs svg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}' +
+    '#tun .pl{position:absolute;width:13.6%;height:5.6%;min-height:34px;transform:translateY(-50%);border-radius:999px;border:2px solid #8a8d96;background:rgba(13,15,22,.6);color:#f2f2f2;font:500 clamp(15px,4.4vw,24px) var(--display);display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0;line-height:1}' +
+    '#tun .pl sub{font-size:.58em;position:relative;top:.35em;margin-left:1px;line-height:0}#tun .pl.L{left:3.6%}#tun .pl.R{right:3.6%}' +
+    '#tun .pl.hint{border-color:#e8c25a;color:#ffe08a;box-shadow:0 0 12px rgba(232,194,90,.45)}#tun .pl.on{border-color:#44e86a;color:#44e86a;box-shadow:0 0 14px rgba(68,232,106,.7),inset 0 0 8px rgba(68,232,106,.3)}' +
+    '#tun .tb{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}#tun .tb .btn{min-height:44px}#tun .tb .btn.on{background:var(--accent);color:var(--accent-fg)}' +
+    '#tun .tlv{height:4px;border-radius:2px;background:#232632;overflow:hidden;margin:2px 18%}#tun .tlv i{display:block;height:100%;width:0;background:#6b6f7c;transition:width .08s}' +
+    '#tun .tmic{justify-self:center;min-height:52px;font-size:17px;padding:0 24px}#tun .tmic[hidden]{display:none}#tun .tst{text-align:center;color:#a9acb6;font-size:14px;min-height:20px;padding:0 8px}#tun .tst small{display:block;margin-top:6px;line-height:1.45}' +
+    '.trow{display:flex;gap:12px;align-items:center;margin-top:12px;border-top:1px solid var(--line);padding-top:12px;color:inherit;background:none;border-left:0;border-right:0;border-bottom:0;width:100%;text-align:left;cursor:pointer;font:inherit}' +
+    '.trow .ti{width:34px;height:34px;flex:none;display:grid;place-items:center;border-radius:50%;background:var(--accent);color:var(--accent-fg);font-weight:800}.trow span{display:grid;gap:2px}.trow small{color:var(--muted)}' +
+    '.backrow{display:flex;justify-content:space-between;gap:8px;align-items:center}';
   document.head.appendChild(c); }
-function tunerRow() { if (!TUN_STR) return ''; tunCss();
+function tunerRow() { if (!TUN_SETS) return ''; tunCss();
   return `<button class="trow" id="trow"><span class="ti">♪</span><span><b>Tuner</b><small>Tune your ${TUN_NAME} with the microphone.</small></span></button>`; }
 function wireTuner() { const t = $('trow'); if (t) t.onclick = openTuner; const b = $('tunb'); if (b) b.onclick = openTuner; }
 // detector de altura (YIN): fiable también con el Mi grave del bajo
@@ -233,34 +251,55 @@ function tunPitch(buf, sr, fmin, fmax) {
   const a = d[best - 1], m = d[best], b = d[best + 1], den = a - 2 * m + b, sh = den ? (a - b) / (2 * den) : 0;
   return sr / (best + Math.max(-1, Math.min(1, sh)));
 }
+// arco del medidor: −50 … +50 cents en 140°
+function tunArc() { const cx = 300, cy = 330, r = 250, A = c => (c / 50) * 70 * Math.PI / 180, P = (c, rr) => [cx + rr * Math.sin(A(c)), cy - rr * Math.cos(A(c))];
+  let g = ''; const [x0, y0] = P(-50, r), [x1, y1] = P(50, r), [a0, b0] = P(-10, r), [a1, b1] = P(10, r);
+  g += `<path d="M${x0} ${y0} A${r} ${r} 0 0 1 ${x1} ${y1}" fill="none" stroke="#555966" stroke-width="3"/>`;
+  g += `<path d="M${a0} ${b0} A${r} ${r} 0 0 1 ${a1} ${b1}" fill="none" stroke="#2f6e3e" stroke-width="5"/>`;
+  for (let c = -10; c <= 10; c++) { const [p, q] = P(c, r - 2), [u, v] = P(c, r + 12); g += `<line x1="${p}" y1="${q}" x2="${u}" y2="${v}" stroke="#3fbf5c" stroke-width="${c % 10 ? 3 : 4}" opacity=".75"/>`; }
+  for (let c = -50; c <= 50; c += 10) { const [p, q] = P(c, r - 12), [u, v] = P(c, r + 12), [tx, ty] = P(c, r + 40);
+    g += `<line x1="${p}" y1="${q}" x2="${u}" y2="${v}" stroke="#8a8d96" stroke-width="3"/><text x="${tx}" y="${ty + 6}" text-anchor="middle" class="${c ? '' : 'z'}">${c > 0 ? '+' + c : c < 0 ? '−' + (-c) : '0'}</text>`; }
+  g += `<g id="tunk"><line x1="${cx}" y1="${cy - r - 22}" x2="${cx}" y2="${cy - r + 58}" stroke="currentColor" stroke-width="10" stroke-linecap="round"/></g>`;
+  return `<svg class="mt" viewBox="0 18 600 300" aria-hidden="true">${g}</svg>`; }
+function tunHead() { const S = TUN_SET, H = S.h, W = 1199;
+  const lines = S.s.map(([n, o, m, side, y, px], k) => { const x0 = side === 'L' ? 0.172 * W : 0.828 * W; return `<line id="tunc${k}" x1="${x0}" y1="${y}" x2="${px}" y2="${y}" stroke="#8a8d96" stroke-width="2"/>`; }).join('');
+  return `<div class="hs" style="aspect-ratio:${W}/${H}"><img src="${S.img}" alt="" draggable="false"><svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">${lines}</svg>` +
+    S.s.map(([n, o, m, side, y], k) => `<button class="pl ${side}" data-s="${k}" style="top:${(y / H * 100).toFixed(2)}%">${n}<sub>${o}</sub></button>`).join('') + '</div>'; }
 async function openTuner() {
-  if (!TUN_STR) return; tunCss(); try { if (typeof stop === 'function') stop(); } catch (e) {}
+  if (!TUN_SETS) return; tunCss(); try { if (typeof stop === 'function') stop(); } catch (e) {}
   const el = document.createElement('div'); el.id = 'tun';
-  el.innerHTML = `<div class="tp" role="dialog" aria-label="Tuner"><div class="th"><b>Tuner</b><button class="btn ghost" id="tunx">Close</button></div>
-    <div class="ts"><button class="auto on" data-s="-1">Auto</button><span class="tsh" id="tsh">The app finds the string you play. Or tap a string to choose it.</span></div>
-    ${tunStrings()}
-    <div class="tn" id="tunn">–<small id="tunh">Play an open string</small></div>
-    <div class="tm"><div class="sc"></div><div class="ok"></div><div class="c0"></div><div class="nd" id="tund"></div></div>
-    <div class="tl"><span>♭ low</span><span>in tune</span><span>high ♯</span></div>
-    <div class="tlv"><i id="tunl"></i></div>
-    <div class="tst" id="tuns">The tuner listens with the microphone of your phone.</div>
-    <button class="btn tmic" id="tunp">🎤 Turn on the microphone</button>
-    <div class="tb"><button class="btn ghost" id="tunr">Play the note</button></div></div>`;
-  document.body.appendChild(el);
-  const S = TUN = {el, sel: -1, ctx: null, st: null, raf: 0, hist: [], last: 0, osc: null};
+  const draw = () => {
+    el.innerHTML = `<div class="tp" role="dialog" aria-label="Tuner"><div class="th"><span></span><b>Tuner</b><button class="ib" id="tunx" aria-label="Close">✕</button></div>
+      ${TUN_SETS.length > 1 ? `<select class="sel" id="tunv">${TUN_SETS.map(x => `<option value="${x.id}"${x === TUN_SET ? ' selected' : ''}>${x.label}</option>`).join('')}</select>` : `<div class="sel">${TUN_SET.label}</div>`}
+      ${tunArc()}<div class="nn" id="tunn">–</div><div class="st" id="tunst"><span class="ck">✓</span><span id="tunh">Play an open string</span></div>
+      ${tunHead()}<div class="tlv"><i id="tunl"></i></div><div class="tst" id="tuns">The tuner listens with the microphone of your phone.</div>
+      <button class="btn tmic" id="tunp">🎤 Turn on the microphone</button>
+      <div class="tb"><button class="btn ghost on" id="tuna">Auto</button><button class="btn ghost" id="tunr">Play the note</button></div></div>`; };
+  draw(); document.body.appendChild(el);
+  const S = TUN = {el, sel: -1, ctx: null, st: null, raf: 0, hist: [], last: 0, x: -50, v: 0, tgt: -50, seen: 0};
   const close = () => { cancelAnimationFrame(S.raf); cancelAnimationFrame(S.spr); try { S.st && S.st.getTracks().forEach(t => t.stop()); } catch (e) {} try { S.ctx && S.ctx.close(); } catch (e) {} try { S.mic && S.mic.close(); } catch (e) {} el.remove(); TUN = null; };
-  $('tunx').onclick = close; el.addEventListener('click', e => { if (e.target === el) close(); });
-  const pick = k => { S.sel = k; el.querySelector('.ts .auto').classList.toggle('on', k < 0); el.querySelectorAll('.tsg .sr').forEach(r => { r.classList.toggle('on', +r.dataset.s === k); r.classList.remove('hint'); });
-    $('tsh').textContent = k < 0 ? 'The app finds the string you play. Or tap a string to choose it.' : 'String ' + (TUN_STR.length - k) + ' chosen. Tap Auto to let the app find it.'; };
-  el.querySelector('.ts .auto').onclick = () => pick(-1); el.querySelectorAll('.tsg .sr').forEach(r => r.onclick = () => pick(+r.dataset.s));
-  // aguja con muelle: sigue al sonido con suavidad y vuelve al centro cuando el sonido se apaga
-  S.x = 0; S.v = 0; S.tgt = 0; const spring = () => { if (!TUN) return; S.spr = requestAnimationFrame(spring); if (performance.now() - (S.seen || 0) > 380) S.tgt = 0;
-    S.v = S.v * 0.84 + (S.tgt - S.x) * 0.045; S.x += S.v; const nd = $('tund'); if (nd) { nd.style.left = (50 + Math.max(-50, Math.min(50, S.x))) + '%'; nd.classList.toggle('in', !!S.inTune && performance.now() - S.seen < 380); } };
-  S.spr = requestAnimationFrame(spring);
-  $('tunr').onclick = () => { if (!S.ctx) S.ctx = new (window.AudioContext || window.webkitAudioContext)(); S.ctx.resume(); const i = S.sel >= 0 ? S.sel : (S.lastStr ?? 0), f = 440 * Math.pow(2, (TUN_STR[i][1] - 69) / 12), t = S.ctx.currentTime;
+  const pick = k => { S.sel = k; S.cur = k >= 0 ? k : null; $('tuna').classList.toggle('on', k < 0); paintPills(k >= 0 ? k : null, false); };
+  const paintPills = (i, ok) => el.querySelectorAll('.pl').forEach(p => { const me = +p.dataset.s === i; p.classList.toggle('on', me && (ok || S.sel === i)); p.classList.toggle('hint', me && !ok && S.sel !== i);
+    const ln = $('tunc' + p.dataset.s); if (ln) ln.setAttribute('stroke', me ? (ok || S.sel === i ? '#44e86a' : '#e8c25a') : '#8a8d96'); });
+  const wire = () => { $('tunx').onclick = close; const v = $('tunv');
+    if (v) v.onchange = () => { TUN_SET = TUN_SETS.find(x => x.id === v.value) || TUN_SET; try { localStorage.setItem('dm-tun-' + TUN_INST, TUN_SET.id); } catch (e) {}
+      const mic = !$('tunp') || $('tunp').hidden; draw(); wire(); S.sel = -1; S.cur = null; S.hist = []; if (mic) { $('tunp').hidden = true; $('tuns').textContent = 'Listening… play one string at a time.'; } };
+    el.querySelectorAll('.pl').forEach(p => p.onclick = () => pick(S.sel === +p.dataset.s ? -1 : +p.dataset.s)); $('tuna').onclick = () => pick(-1);
+    $('tunr').onclick = refTone; $('tunp').onclick = start; };
+  // nota de referencia con muchos armónicos (el altavoz del móvil no da las notas graves; así se reconoce la nota)
+  const refTone = () => { if (!S.ctx) S.ctx = new (window.AudioContext || window.webkitAudioContext)(); S.ctx.resume();
+    const i = S.sel >= 0 ? S.sel : (S.cur ?? 0), f = 440 * Math.pow(2, (TUN_SET.s[i][2] - 69) / 12), t = S.ctx.currentTime;
     const g = S.ctx.createGain(); g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(.25, t + .03); g.gain.setTargetAtTime(0, t + 1.6, .3); g.connect(S.ctx.destination);
     const N = 24, re = new Float32Array(N + 1), im = new Float32Array(N + 1); for (let h = 1; h <= N; h++) im[h] = (f * h < 4000 ? 1 / h : 0) * (h === 1 ? 1.5 : 1);
-    const o = S.ctx.createOscillator(); o.setPeriodicWave(S.ctx.createPeriodicWave(re, im)); o.frequency.value = f; o.connect(g); o.start(t); o.stop(t + 2.6); };
+    const o = S.ctx.createOscillator(); o.setPeriodicWave(S.ctx.createPeriodicWave(re, im)); o.frequency.value = f; o.connect(g); o.start(t); o.stop(t + 2.6); paintPills(i, false); };
+  // aguja con muelle: sube con el sonido y, en silencio, vuelve a su reposo en el extremo izquierdo
+  const spring = () => { if (!TUN) return; S.spr = requestAnimationFrame(spring); const live = performance.now() - S.seen < 450; if (!live) S.tgt = -50;
+    S.v = S.v * 0.86 + (S.tgt - S.x) * 0.04; S.x += S.v; const k = $('tunk'); if (!k) return;
+    const ok = live && S.inTune; k.setAttribute('transform', `rotate(${(Math.max(-55, Math.min(55, S.x)) / 50 * 70).toFixed(2)} 300 330)`);
+    k.style.color = ok ? '#44e86a' : live ? '#e8c25a' : '#4a4d58'; k.style.filter = ok ? 'drop-shadow(0 0 8px #44e86a)' : 'none';
+    if (!live && S.wasLive) { S.wasLive = false; $('tunn').classList.remove('ok'); $('tunst').classList.remove('ok'); } };
+  S.spr = requestAnimationFrame(spring);
+  el.addEventListener('click', e => { if (e.target === el) close(); });
   try { if (typeof gcEvt === 'function') gcEvt((TUN_INST === 'uke' ? 'ukulele' : MODE) + ': tuner open'); } catch (e) {}
   const start = async () => { $('tunp').hidden = true; $('tuns').textContent = 'Tap «Allow» when your phone asks.'; try {
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) throw Object.assign(new Error('no mic'), {name: 'NotSupported'});
@@ -268,49 +307,42 @@ async function openTuner() {
     if (!TUN) { S.st.getTracks().forEach(t => t.stop()); return; }
     S.mic = new (window.AudioContext || window.webkitAudioContext)(); await S.mic.resume();
     const src = S.mic.createMediaStreamSource(S.st), an = S.mic.createAnalyser(); an.fftSize = TUN_INST === 'bass' ? 8192 : 4096; src.connect(an);
-    const buf = new Float32Array(an.fftSize), fmin = TUN_INST === 'bass' ? 36 : TUN_INST === 'uke' ? 200 : 70, fmax = TUN_INST === 'bass' ? 420 : TUN_INST === 'uke' ? 1100 : 1000;
+    const buf = new Float32Array(an.fftSize), fmin = TUN_INST === 'bass' ? 28 : TUN_INST === 'uke' ? 200 : 70, fmax = TUN_INST === 'bass' ? 420 : TUN_INST === 'uke' ? 1100 : 1000;
     $('tuns').textContent = 'Listening… play one string at a time.';
     const loop = now => { S.raf = requestAnimationFrame(loop); if (now - S.last < 70) return; S.last = now;
       if (S.mic.state !== 'running') S.mic.resume(); an.getFloatTimeDomainData(buf); let pk = 0; for (let k = 0; k < buf.length; k++) { const v = Math.abs(buf[k]); if (v > pk) pk = v; }
-      $('tunl').style.width = Math.min(100, Math.round(Math.sqrt(pk) * 140)) + '%'; const f = tunPitch(buf, S.mic.sampleRate, fmin, fmax);
+      const lv = $('tunl'); if (lv) lv.style.width = Math.min(100, Math.round(Math.sqrt(pk) * 140)) + '%'; const f = tunPitch(buf, S.mic.sampleRate, fmin, fmax);
       if (!f) { if (pk > 0.02 && !S.hist.length) $('tuns').textContent = 'I hear sound: play one open string and let it ring.'; if (S.hist.length && now - S.seen > 900) { S.hist = []; S.prevM = null; } return; }
       let m = 69 + 12 * Math.log2(f / 440);
       // error típico: oír una octava o una quinta por debajo (el Mi agudo como La grave); si la nota anterior encaja con un armónico, se corrige
       if (S.prevM != null && now - S.seen < 600) for (const off of [12, 19.02, 24, -12]) if (Math.abs(m + off - S.prevM) < 0.6) { m += off; break; }
-      S.seen = now; S.prevM = m; S.hist.push(m); if (S.hist.length > 5) S.hist.shift();
-      const med = S.hist.slice().sort((a, b) => a - b)[Math.floor(S.hist.length / 2)];
-      let i = S.sel; if (i < 0) { let bd = 1e9, c = 0; TUN_STR.forEach(([n, mm], k) => { const dd = Math.abs(med - mm); if (dd < bd) { bd = dd; c = k; } });
+      S.seen = performance.now(); S.wasLive = true; S.prevM = m; S.hist.push(m); if (S.hist.length > 5) S.hist.shift();
+      const med = S.hist.slice().sort((a, b) => a - b)[Math.floor(S.hist.length / 2)], STR = TUN_SET.s;
+      let i = S.sel; if (i < 0) { let bd = 1e9, c = 0; STR.forEach((s, k) => { const dd = Math.abs(med - s[2]); if (dd < bd) { bd = dd; c = k; } });
         // cambia de cuerda solo si la nueva gana varias lecturas seguidas
         if (S.cur == null || S.cur === c) { S.cur = c; S.cand = null; S.cn = 0; } else if (S.cand === c) { if (++S.cn >= 4) { S.cur = c; S.cand = null; S.cn = 0; } } else { S.cand = c; S.cn = 1; }
         i = S.cur; }
-      S.lastStr = i; const target = TUN_STR[i][1], cents = (med - target) * 100;
-      el.querySelectorAll('.tsg .sr').forEach(r => r.classList.toggle('hint', S.sel < 0 && +r.dataset.s === i));
+      const [nm, oc, target] = STR[i], cents = (med - target) * 100, ok = Math.abs(cents) <= 5; S.inTune = ok; S.tgt = Math.max(-50, Math.min(50, cents));
       const near = Math.round(med), nn = TUN_NN[((near % 12) + 12) % 12];
-      $('tunn').firstChild.textContent = TUN_STR[i][0] + ' '; $('tunn').firstChild.textContent = TUN_STR[i][0]; $('tunh').textContent = Math.abs(cents) > 150 ? 'You are playing ' + nn + ' · aim for ' + TUN_STR[i][0] : (cents > 0 ? '+' : '') + Math.round(cents) + ' cents';
-      S.tgt = Math.max(-50, Math.min(50, cents)); const ok = Math.abs(cents) <= 5; S.inTune = ok;
-      $('tuns').innerHTML = ok ? '<span class="tgood">In tune</span>' : Math.abs(cents) > 150 ? 'Far from ' + TUN_STR[i][0] + ': turn the peg slowly' : cents > 0 ? 'Too high: loosen the string a little' : 'Too low: tighten the string a little'; };
+      $('tunn').innerHTML = nm + '<sub>' + oc + '</sub>'; $('tunn').classList.toggle('ok', ok); $('tunst').classList.toggle('ok', ok); paintPills(i, ok);
+      $('tunh').textContent = ok ? 'In tune' : Math.abs(cents) > 150 ? 'You are playing ' + nn + ' · aim for ' + nm : (cents > 0 ? '+' : '') + Math.round(cents) + ' cents · ' + (cents > 0 ? 'loosen a little' : 'tighten a little');
+      $('tuns').textContent = ok ? 'Next string.' : Math.abs(cents) > 150 ? 'Turn the peg slowly towards ' + nm + '.' : cents > 0 ? 'Too high: loosen the string a little.' : 'Too low: tighten the string a little.'; };
     S.raf = requestAnimationFrame(loop);
-  } catch (e) { $('tuns').innerHTML = (e.name === 'NotAllowedError' || e.name === 'SecurityError') ? tunHelp() : e.name === 'NotSupported' ? 'This browser cannot use the microphone. Open the app in Chrome or Safari.' : 'Microphone not available: ' + (e.message || e.name); } };
-  $('tunp').onclick = start;
+  } catch (e) { $('tuns').innerHTML = (e.name === 'NotAllowedError' || e.name === 'SecurityError') ? tunHelp() : e.name === 'NotSupported' ? 'This browser cannot use the microphone. Open the app in Chrome or Safari.' : 'Microphone not available: ' + (e.message || e.name); $('tunp').hidden = false; $('tunp').textContent = '🎤 Try again'; } };
+  wire();
   // si el permiso ya está dado, empieza sin pedir nada; si está bloqueado, explica cómo quitar el bloqueo
   try { const q = navigator.permissions && await navigator.permissions.query({name: 'microphone'});
     if (q && q.state === 'granted') start(); else if (q && q.state === 'denied') { $('tuns').innerHTML = tunHelp(); $('tunp').textContent = '🎤 Try again'; } } catch (e) {}
 }
-// las cuerdas como se ven al tocar: arriba la 6.ª (guitarra) o la 4.ª (bajo, ukelele)
-function tunStrings() { const n = TUN_STR.length;
-  const TH = {guitar: [4.4, 3.6, 2.8, 2, 1.5, 1.1], bass: [6, 4.8, 3.8, 3], uke: [1.8, 2.8, 2.2, 1.5]}[TUN_INST] || TUN_STR.map(() => 2);
-  const WOUND = {guitar: [1, 1, 1, 0, 0, 0], bass: [1, 1, 1, 1], uke: [0, 0, 0, 0]}[TUN_INST] || [];
-  const DESC = {guitar: ['thickest', '', '', '', '', 'thinnest'], bass: ['thickest', '', '', 'thinnest'], uke: ['thin', 'thickest', '', 'thinnest']}[TUN_INST] || [];
-  return '<div class="tsg">' + TUN_STR.map(([nm], k) => `<div class="sr${WOUND[k] ? ' w' : ''}" data-s="${k}"><b>${n - k} · ${nm}</b><i style="height:${TH[k]}px"></i><small>${DESC[k] || ''}</small></div>`).join('') + '</div>'; }
 // cómo desbloquear el micrófono, según el móvil
 function tunHelp() { const ua = navigator.userAgent, ios = /iPhone|iPad|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1), and = /Android/.test(ua);
   const steps = ios ? 'On iPhone: tap <b>aA</b> in the address bar › <b>Website Settings</b> › <b>Microphone</b> › <b>Allow</b>. If you installed the app, open <b>Settings</b> › <b>Safari</b> › <b>Microphone</b> › <b>Allow</b>.'
     : and ? 'On Android: tap the <b>icon left of the address</b> (or ⋮ › <b>Site settings</b>) › <b>Permissions</b> › <b>Microphone</b> › <b>Allow</b>.'
     : 'Click the <b>icon left of the address</b> › <b>Microphone</b> › <b>Allow</b>, then reload the page.';
-  return '<span class="tgood" style="color:var(--fg)">The microphone is blocked for this app.</span><br><small>' + steps + ' Then tap the button again.</small>'; }
+  return '<span style="color:#f2f2f2">The microphone is blocked for this app.</span><small>' + steps + ' Then tap the button again.</small>'; }
 
 function draw(){ $('row').innerHTML=tunerRow(); wireTuner(); }
-document.querySelectorAll('.seg button').forEach(b=>b.onclick=()=>{TUN_INST=b.dataset.i;TUN_STR=TUN_ALL[TUN_INST];TUN_NAME={guitar:'guitar',bass:'bass',uke:'ukulele'}[TUN_INST];
+document.querySelectorAll('.seg button').forEach(b=>b.onclick=()=>{TUN_INST=b.dataset.i;TUN_SETS=TUN_ALLSETS[TUN_INST];TUN_SET=TUN_SETS[0];try{const k=localStorage.getItem('dm-tun-'+TUN_INST);if(k)TUN_SET=TUN_SETS.find(x=>x.id===k)||TUN_SET;}catch(e){}TUN_NAME={guitar:'guitar',bass:'bass',uke:'ukulele'}[TUN_INST];
 document.querySelectorAll('.seg button').forEach(x=>x.className='btn'+(x===b?'':' ghost'));draw();});
 draw();
 </script></body></html>
