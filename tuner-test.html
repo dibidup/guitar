@@ -188,7 +188,7 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--accent);outline
 
 body{padding:16px} .wrap{max-width:460px;margin:0 auto;display:grid;gap:14px} .seg{display:flex;gap:6px} .seg button{flex:1}
 </style></head><body><div class="wrap">
-<div class="top"><div class="brandrow"><div class="logo" role="img" aria-label="Dibidup Music"></div><div class="brand"><small>Dibidup Music · test page v4</small>Tuner</div></div></div>
+<div class="top"><div class="brandrow"><div class="logo" role="img" aria-label="Dibidup Music"></div><div class="brand"><small>Dibidup Music · test page v5</small>Tuner</div></div></div>
 <div class="card"><p class="muted" style="margin:0 0 10px">Test page for the tuner of the Guitar, Bass and Ukulele apps. Choose the instrument, then open the tuner.</p>
 <div class="seg"><button class="btn" data-i="guitar">Guitar</button><button class="btn ghost" data-i="bass">Bass</button><button class="btn ghost" data-i="uke">Ukulele</button></div>
 <div id="row"></div></div></div>
@@ -292,9 +292,9 @@ async function openTuner() {
     const g = S.ctx.createGain(); g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(.25, t + .03); g.gain.setTargetAtTime(0, t + 1.6, .3); g.connect(S.ctx.destination);
     const N = 24, re = new Float32Array(N + 1), im = new Float32Array(N + 1); for (let h = 1; h <= N; h++) im[h] = (f * h < 4000 ? 1 / h : 0) * (h === 1 ? 1.5 : 1);
     const o = S.ctx.createOscillator(); o.setPeriodicWave(S.ctx.createPeriodicWave(re, im)); o.frequency.value = f; o.connect(g); o.start(t); o.stop(t + 2.6); paintPills(i, false); };
-  // aguja con muelle: sube con el sonido y, en silencio, vuelve a su reposo en el extremo izquierdo
+  // aguja pesada (muelle muy amortiguado): sube con el sonido y, en silencio, vuelve a su reposo en el extremo izquierdo
   const spring = () => { if (!TUN) return; S.spr = requestAnimationFrame(spring); const live = performance.now() - S.seen < 450; if (!live) S.tgt = -50;
-    S.v = S.v * 0.86 + (S.tgt - S.x) * 0.04; S.x += S.v; const k = $('tunk'); if (!k) return;
+    S.v = S.v * 0.78 + (S.tgt - S.x) * 0.014; S.x += S.v; const k = $('tunk'); if (!k) return;
     const ok = live && S.inTune; k.setAttribute('transform', `rotate(${(Math.max(-55, Math.min(55, S.x)) / 50 * 70).toFixed(2)} 300 330)`);
     k.style.color = ok ? '#44e86a' : live ? '#e8c25a' : '#4a4d58'; k.style.filter = ok ? 'drop-shadow(0 0 8px #44e86a)' : 'none';
     if (!live && S.wasLive) { S.wasLive = false; $('tunn').classList.remove('ok'); $('tunst').classList.remove('ok'); } };
@@ -312,17 +312,25 @@ async function openTuner() {
     const loop = now => { S.raf = requestAnimationFrame(loop); if (now - S.last < 70) return; S.last = now;
       if (S.mic.state !== 'running') S.mic.resume(); an.getFloatTimeDomainData(buf); let pk = 0; for (let k = 0; k < buf.length; k++) { const v = Math.abs(buf[k]); if (v > pk) pk = v; }
       const lv = $('tunl'); if (lv) lv.style.width = Math.min(100, Math.round(Math.sqrt(pk) * 140)) + '%'; const f = tunPitch(buf, S.mic.sampleRate, fmin, fmax);
-      if (!f) { if (pk > 0.02 && !S.hist.length) $('tuns').textContent = 'I hear sound: play one open string and let it ring.'; if (S.hist.length && now - S.seen > 900) { S.hist = []; S.prevM = null; } return; }
+      if (!f) { if (pk > 0.02 && !S.hist.length) $('tuns').textContent = 'I hear sound: play one open string and let it ring.'; if (S.hist.length && now - S.seen > 900) { S.hist = []; S.prevM = null; S.sm = null; S.on0 = 0; } return; }
       let m = 69 + 12 * Math.log2(f / 440);
       // error típico: oír una octava o una quinta por debajo (el Mi agudo como La grave); si la nota anterior encaja con un armónico, se corrige
       if (S.prevM != null && now - S.seen < 600) for (const off of [12, 19.02, 24, -12]) if (Math.abs(m + off - S.prevM) < 0.6) { m += off; break; }
-      S.seen = performance.now(); S.wasLive = true; S.prevM = m; S.hist.push(m); if (S.hist.length > 5) S.hist.shift();
-      const med = S.hist.slice().sort((a, b) => a - b)[Math.floor(S.hist.length / 2)], STR = TUN_SET.s;
+      // ataque: los primeros 120 ms de cada pulsación suenan algo altos; se ignoran
+      if (!S.hist.length && !S.on0) S.on0 = now; if (S.on0 && now - S.on0 < 120) { S.seen = performance.now(); S.prevM = m; return; } S.on0 = 0;
+      // lecturas sueltas que se alejan más de medio semitono de las demás se descartan
+      if (S.hist.length >= 3) { const md = S.hist.slice().sort((a, b) => a - b)[S.hist.length >> 1]; if (Math.abs(m - md) > 0.5 && ++S.odd < 3) { S.seen = performance.now(); return; } } S.odd = 0;
+      S.seen = performance.now(); S.wasLive = true; S.prevM = m; S.hist.push(m); if (S.hist.length > 9) S.hist.shift();
+      const hs = S.hist.slice().sort((a, b) => a - b), q = hs.length > 4 ? Math.floor(hs.length / 4) : 0, mid = hs.slice(q, hs.length - q),
+        med = mid.reduce((a, b) => a + b, 0) / mid.length, STR = TUN_SET.s;
       let i = S.sel; if (i < 0) { let bd = 1e9, c = 0; STR.forEach((s, k) => { const dd = Math.abs(med - s[2]); if (dd < bd) { bd = dd; c = k; } });
         // cambia de cuerda solo si la nueva gana varias lecturas seguidas
         if (S.cur == null || S.cur === c) { S.cur = c; S.cand = null; S.cn = 0; } else if (S.cand === c) { if (++S.cn >= 4) { S.cur = c; S.cand = null; S.cn = 0; } } else { S.cand = c; S.cn = 1; }
         i = S.cur; }
-      const [nm, oc, target] = STR[i], cents = (med - target) * 100, ok = Math.abs(cents) <= 5; S.inTune = ok; S.tgt = Math.max(-50, Math.min(50, cents));
+      const [nm, oc, target] = STR[i], raw = (med - target) * 100;
+      // media suavizada: lenta cerca de la afinación, rápida si giras mucho la clavija o cambias de cuerda
+      if (S.smI !== i || S.sm == null || Math.abs(raw - S.sm) > 35) S.sm = raw; else S.sm += (raw - S.sm) * (Math.abs(raw - S.sm) > 12 ? 0.35 : 0.15); S.smI = i;
+      const cents = S.sm, ok = Math.abs(cents) <= (S.inTune ? 7 : 4); S.inTune = ok; S.tgt = Math.max(-50, Math.min(50, cents));
       const near = Math.round(med), nn = TUN_NN[((near % 12) + 12) % 12];
       $('tunn').innerHTML = nm + '<sub>' + oc + '</sub>'; $('tunn').classList.toggle('ok', ok); $('tunst').classList.toggle('ok', ok); paintPills(i, ok);
       $('tunh').textContent = ok ? 'In tune' : Math.abs(cents) > 150 ? 'You are playing ' + nn + ' · aim for ' + nm : (cents > 0 ? '+' : '') + Math.round(cents) + ' cents · ' + (cents > 0 ? 'loosen a little' : 'tighten a little');
