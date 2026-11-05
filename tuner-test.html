@@ -188,7 +188,7 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--accent);outline
 
 body{padding:16px} .wrap{max-width:460px;margin:0 auto;display:grid;gap:14px} .seg{display:flex;gap:6px} .seg button{flex:1}
 </style></head><body><div class="wrap">
-<div class="top"><div class="brandrow"><div class="logo" role="img" aria-label="Dibidup Music"></div><div class="brand"><small>Dibidup Music · test page</small>Tuner</div></div></div>
+<div class="top"><div class="brandrow"><div class="logo" role="img" aria-label="Dibidup Music"></div><div class="brand"><small>Dibidup Music · test page v2</small>Tuner</div></div></div>
 <div class="card"><p class="muted" style="margin:0 0 10px">Test page for the tuner of the Guitar, Bass and Ukulele apps. Choose the instrument, then open the tuner.</p>
 <div class="seg"><button class="btn" data-i="guitar">Guitar</button><button class="btn ghost" data-i="bass">Bass</button><button class="btn ghost" data-i="uke">Ukulele</button></div>
 <div id="row"></div></div></div>
@@ -214,7 +214,7 @@ function tunCss() { if (document.getElementById('tuncss')) return; const c = doc
     '#tun .tm .nd{position:absolute;left:50%;top:4px;width:4px;height:48px;margin-left:-2px;border-radius:2px;background:var(--accent);transition:left .12s ease-out}' +
     '#tun .tm .nd.in{background:#6fbf6f}#tun .tl{display:flex;justify-content:space-between;color:var(--muted);font-size:12px}' +
     '#tun .tst{text-align:center;min-height:22px;color:var(--muted)}#tun .tst .tgood{color:#6fbf6f;font-weight:700}' +
-    '#tun .tmic{justify-content:center;min-height:52px;font-size:17px}#tun .tmic[hidden]{display:none}#tun .tst small{display:block;margin-top:6px;line-height:1.45}' +
+    '#tun .tlv{height:6px;border-radius:3px;background:var(--line);overflow:hidden}#tun .tlv i{display:block;height:100%;width:0;background:var(--muted);transition:width .08s}#tun .tmic{justify-content:center;min-height:52px;font-size:17px}#tun .tmic[hidden]{display:none}#tun .tst small{display:block;margin-top:6px;line-height:1.45}' +
     '#tun .tb{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}.trow{display:flex;gap:12px;align-items:center;margin-top:12px;border-top:1px solid var(--line);padding-top:12px;color:inherit;background:none;border-left:0;border-right:0;border-bottom:0;width:100%;text-align:left;cursor:pointer;font:inherit}' +
     '.backrow{display:flex;justify-content:space-between;gap:8px;align-items:center}.trow .ti{width:34px;height:34px;flex:none;display:grid;place-items:center;border-radius:50%;background:var(--accent);color:var(--accent-fg);font-weight:800}.trow span{display:grid;gap:2px}.trow small{color:var(--muted)}';
   document.head.appendChild(c); }
@@ -223,13 +223,13 @@ function tunerRow() { if (!TUN_STR) return ''; tunCss();
 function wireTuner() { const t = $('trow'); if (t) t.onclick = openTuner; const b = $('tunb'); if (b) b.onclick = openTuner; }
 // detector de altura (YIN): fiable también con el Mi grave del bajo
 function tunPitch(buf, sr, fmin, fmax) {
-  const N = buf.length; let rms = 0; for (let i = 0; i < N; i++) rms += buf[i] * buf[i]; rms = Math.sqrt(rms / N); if (rms < 0.008) return null;
+  const N = buf.length; let rms = 0; for (let i = 0; i < N; i++) rms += buf[i] * buf[i]; rms = Math.sqrt(rms / N); if (rms < 0.0015) return null;
   const tMin = Math.floor(sr / fmax), tMax = Math.min(Math.floor(sr / fmin), Math.floor(N / 2) - 1), W = N - tMax - 1;
   const d = new Float32Array(tMax + 2), c = new Float32Array(tMax + 2); c[0] = 1;
   for (let t = 1; t <= tMax + 1; t++) { let s = 0; for (let j = 0; j < W; j++) { const x = buf[j] - buf[j + t]; s += x * x; } d[t] = s; }
   let sum = 0; for (let t = 1; t <= tMax + 1; t++) { sum += d[t]; c[t] = d[t] * t / (sum || 1); }
-  let best = -1; for (let t = tMin + 1; t <= tMax; t++) if (c[t] < 0.15 && c[t] <= c[t - 1] && c[t] <= c[t + 1]) { best = t; while (best + 1 <= tMax && c[best + 1] < c[best]) best++; break; }
-  if (best < 0) { let mv = 1e9; for (let t = tMin + 1; t <= tMax; t++) if (c[t] < mv) { mv = c[t]; best = t; } if (mv > 0.35) return null; }
+  let best = -1; for (let t = tMin + 1; t <= tMax; t++) if (c[t] < 0.2 && c[t] <= c[t - 1] && c[t] <= c[t + 1]) { best = t; while (best + 1 <= tMax && c[best + 1] < c[best]) best++; break; }
+  if (best < 0) { let mv = 1e9; for (let t = tMin + 1; t <= tMax; t++) if (c[t] < mv) { mv = c[t]; best = t; } if (mv > 0.5) return null; }
   const a = d[best - 1], m = d[best], b = d[best + 1], den = a - 2 * m + b, sh = den ? (a - b) / (2 * den) : 0;
   return sr / (best + Math.max(-1, Math.min(1, sh)));
 }
@@ -241,29 +241,32 @@ async function openTuner() {
     <div class="tn" id="tunn">–<small id="tunh">Play an open string</small></div>
     <div class="tm"><div class="sc"></div><div class="ok"></div><div class="c0"></div><div class="nd" id="tund"></div></div>
     <div class="tl"><span>♭ low</span><span>in tune</span><span>high ♯</span></div>
+    <div class="tlv"><i id="tunl"></i></div>
     <div class="tst" id="tuns">The tuner listens with the microphone of your phone.</div>
     <button class="btn tmic" id="tunp">🎤 Turn on the microphone</button>
     <div class="tb"><button class="btn ghost" id="tunr">Play the note</button></div></div>`;
   document.body.appendChild(el);
   const S = TUN = {el, sel: -1, ctx: null, st: null, raf: 0, hist: [], last: 0, osc: null};
-  const close = () => { cancelAnimationFrame(S.raf); try { S.st && S.st.getTracks().forEach(t => t.stop()); } catch (e) {} try { S.ctx && S.ctx.close(); } catch (e) {} el.remove(); TUN = null; };
+  const close = () => { cancelAnimationFrame(S.raf); try { S.st && S.st.getTracks().forEach(t => t.stop()); } catch (e) {} try { S.ctx && S.ctx.close(); } catch (e) {} try { S.mic && S.mic.close(); } catch (e) {} el.remove(); TUN = null; };
   $('tunx').onclick = close; el.addEventListener('click', e => { if (e.target === el) close(); });
   el.querySelectorAll('.ts button').forEach(b => b.onclick = () => { S.sel = +b.dataset.s; el.querySelectorAll('.ts button').forEach(x => x.classList.toggle('on', x === b)); });
   $('tunr').onclick = () => { if (!S.ctx) S.ctx = new (window.AudioContext || window.webkitAudioContext)(); S.ctx.resume(); const i = S.sel >= 0 ? S.sel : (S.lastStr ?? 0), f = 440 * Math.pow(2, (TUN_STR[i][1] - 69) / 12), t = S.ctx.currentTime;
     const g = S.ctx.createGain(); g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(.25, t + .03); g.gain.setTargetAtTime(0, t + 1.6, .3); g.connect(S.ctx.destination);
-    [1, 2, 3].forEach((h, k) => { const o = S.ctx.createOscillator(), gg = S.ctx.createGain(); o.frequency.value = f * h; gg.gain.value = [1, .35, .15][k]; o.connect(gg).connect(g); o.start(t); o.stop(t + 2.6); }); };
+    const N = 24, re = new Float32Array(N + 1), im = new Float32Array(N + 1); for (let h = 1; h <= N; h++) im[h] = (f * h < 4000 ? 1 / h : 0) * (h === 1 ? 1.5 : 1);
+    const o = S.ctx.createOscillator(); o.setPeriodicWave(S.ctx.createPeriodicWave(re, im)); o.frequency.value = f; o.connect(g); o.start(t); o.stop(t + 2.6); };
   try { if (typeof gcEvt === 'function') gcEvt((TUN_INST === 'uke' ? 'ukulele' : MODE) + ': tuner open'); } catch (e) {}
   const start = async () => { $('tunp').hidden = true; $('tuns').textContent = 'Tap «Allow» when your phone asks.'; try {
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) throw Object.assign(new Error('no mic'), {name: 'NotSupported'});
-    S.ctx = S.ctx || new (window.AudioContext || window.webkitAudioContext)();
-    S.st = await navigator.mediaDevices.getUserMedia({audio: {echoCancellation: false, noiseSuppression: false, autoGainControl: false}});
+    S.st = await navigator.mediaDevices.getUserMedia({audio: {echoCancellation: false, noiseSuppression: false, autoGainControl: true}});
     if (!TUN) { S.st.getTracks().forEach(t => t.stop()); return; }
-    await S.ctx.resume(); const src = S.ctx.createMediaStreamSource(S.st), an = S.ctx.createAnalyser(); an.fftSize = TUN_INST === 'bass' ? 8192 : 4096; src.connect(an);
+    S.mic = new (window.AudioContext || window.webkitAudioContext)(); await S.mic.resume();
+    const src = S.mic.createMediaStreamSource(S.st), an = S.mic.createAnalyser(); an.fftSize = TUN_INST === 'bass' ? 8192 : 4096; src.connect(an);
     const buf = new Float32Array(an.fftSize), fmin = TUN_INST === 'bass' ? 36 : TUN_INST === 'uke' ? 200 : 70, fmax = TUN_INST === 'bass' ? 420 : TUN_INST === 'uke' ? 1100 : 1000;
     $('tuns').textContent = 'Listening… play one string at a time.';
     const loop = now => { S.raf = requestAnimationFrame(loop); if (now - S.last < 70) return; S.last = now;
-      an.getFloatTimeDomainData(buf); const f = tunPitch(buf, S.ctx.sampleRate, fmin, fmax);
-      if (!f) { if (S.hist.length && now - S.seen > 900) { S.hist = []; $('tund').classList.remove('in'); } return; }
+      if (S.mic.state !== 'running') S.mic.resume(); an.getFloatTimeDomainData(buf); let pk = 0; for (let k = 0; k < buf.length; k++) { const v = Math.abs(buf[k]); if (v > pk) pk = v; }
+      $('tunl').style.width = Math.min(100, Math.round(Math.sqrt(pk) * 140)) + '%'; const f = tunPitch(buf, S.mic.sampleRate, fmin, fmax);
+      if (!f) { if (pk > 0.02 && !S.hist.length) $('tuns').textContent = 'I hear sound: play one open string and let it ring.'; if (S.hist.length && now - S.seen > 900) { S.hist = []; $('tund').classList.remove('in'); } return; }
       S.seen = now; const m = 69 + 12 * Math.log2(f / 440); S.hist.push(m); if (S.hist.length > 5) S.hist.shift();
       const med = S.hist.slice().sort((a, b) => a - b)[Math.floor(S.hist.length / 2)];
       let i = S.sel; if (i < 0) { let bd = 1e9; TUN_STR.forEach(([n, mm], k) => { const dd = Math.abs(med - mm); if (dd < bd) { bd = dd; i = k; } }); }
