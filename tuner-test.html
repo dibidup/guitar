@@ -188,7 +188,7 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--accent);outline
 
 body{padding:16px} .wrap{max-width:460px;margin:0 auto;display:grid;gap:14px} .seg{display:flex;gap:6px} .seg button{flex:1}
 </style></head><body><div class="wrap">
-<div class="top"><div class="brandrow"><div class="logo" role="img" aria-label="Dibidup Music"></div><div class="brand"><small>Dibidup Music · test page v5</small>Tuner</div></div></div>
+<div class="top"><div class="brandrow"><div class="logo" role="img" aria-label="Dibidup Music"></div><div class="brand"><small>Dibidup Music · test page v6</small>Tuner</div></div></div>
 <div class="card"><p class="muted" style="margin:0 0 10px">Test page for the tuner of the Guitar, Bass and Ukulele apps. Choose the instrument, then open the tuner.</p>
 <div class="seg"><button class="btn" data-i="guitar">Guitar</button><button class="btn ghost" data-i="bass">Bass</button><button class="btn ghost" data-i="uke">Ukulele</button></div>
 <div id="row"></div></div></div>
@@ -248,9 +248,19 @@ function tunPitch(buf, sr, fmin, fmax) {
   let sum = 0; for (let t = 1; t <= tMax + 1; t++) { sum += d[t]; c[t] = d[t] * t / (sum || 1); }
   let best = -1; for (let t = tMin + 1; t <= tMax; t++) if (c[t] < 0.2 && c[t] <= c[t - 1] && c[t] <= c[t + 1]) { best = t; while (best + 1 <= tMax && c[best + 1] < c[best]) best++; break; }
   if (best < 0) { let mv = 1e9; for (let t = tMin + 1; t <= tMax; t++) if (c[t] < mv) { mv = c[t]; best = t; } if (mv > 0.5) return null; }
+  tunPitch.q = c[best]; tunPitch.rms = rms;
   const a = d[best - 1], m = d[best], b = d[best + 1], den = a - 2 * m + b, sh = den ? (a - b) / (2 * den) : 0;
   return sr / (best + Math.max(-1, Math.min(1, sh)));
 }
+// «ting» corto y agudo (fuera del rango que escucha el afinador); se ignora el micro mientras suena
+function tunTing(S) { try { const C = S.ctx || (S.ctx = new (window.AudioContext || window.webkitAudioContext)()); C.resume(); const t = C.currentTime, g = C.createGain();
+  g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(.18, t + .005); g.gain.exponentialRampToValueAtTime(.0005, t + .7); g.connect(C.destination);
+  [[2637, 1], [3951, .35]].forEach(([f, a]) => { const o = C.createOscillator(), gg = C.createGain(); o.frequency.value = f; gg.gain.value = a; o.connect(gg).connect(g); o.start(t); o.stop(t + .75); });
+  S.mute = performance.now() + 350; } catch (e) {} }
+// pantalla siempre encendida mientras el afinador está abierto
+async function tunWake(on) { try { if (on) { if ('wakeLock' in navigator && !(TUN && TUN.wl)) { const w = await navigator.wakeLock.request('screen'); if (TUN) TUN.wl = w; else w.release(); } }
+  else if (TUN && TUN.wl) { TUN.wl.release(); TUN.wl = null; } } catch (e) {} }
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && TUN) { TUN.wl = null; tunWake(true); } });
 // arco del medidor: −50 … +50 cents en 140°
 function tunArc() { const cx = 300, cy = 330, r = 250, A = c => (c / 50) * 70 * Math.PI / 180, P = (c, rr) => [cx + rr * Math.sin(A(c)), cy - rr * Math.cos(A(c))];
   let g = ''; const [x0, y0] = P(-50, r), [x1, y1] = P(50, r), [a0, b0] = P(-10, r), [a1, b1] = P(10, r);
@@ -277,7 +287,7 @@ async function openTuner() {
       <div class="tb"><button class="btn ghost on" id="tuna">Auto</button><button class="btn ghost" id="tunr">Play the note</button></div></div>`; };
   draw(); document.body.appendChild(el);
   const S = TUN = {el, sel: -1, ctx: null, st: null, raf: 0, hist: [], last: 0, x: -50, v: 0, tgt: -50, seen: 0};
-  const close = () => { cancelAnimationFrame(S.raf); cancelAnimationFrame(S.spr); try { S.st && S.st.getTracks().forEach(t => t.stop()); } catch (e) {} try { S.ctx && S.ctx.close(); } catch (e) {} try { S.mic && S.mic.close(); } catch (e) {} el.remove(); TUN = null; };
+  const close = () => { cancelAnimationFrame(S.raf); cancelAnimationFrame(S.spr); try { S.st && S.st.getTracks().forEach(t => t.stop()); } catch (e) {} try { S.ctx && S.ctx.close(); } catch (e) {} try { S.mic && S.mic.close(); } catch (e) {} tunWake(false); el.remove(); TUN = null; };
   const pick = k => { S.sel = k; S.cur = k >= 0 ? k : null; $('tuna').classList.toggle('on', k < 0); paintPills(k >= 0 ? k : null, false); };
   const paintPills = (i, ok) => el.querySelectorAll('.pl').forEach(p => { const me = +p.dataset.s === i; p.classList.toggle('on', me && (ok || S.sel === i)); p.classList.toggle('hint', me && !ok && S.sel !== i);
     const ln = $('tunc' + p.dataset.s); if (ln) ln.setAttribute('stroke', me ? (ok || S.sel === i ? '#44e86a' : '#e8c25a') : '#8a8d96'); });
@@ -299,6 +309,7 @@ async function openTuner() {
     k.style.color = ok ? '#44e86a' : live ? '#e8c25a' : '#4a4d58'; k.style.filter = ok ? 'drop-shadow(0 0 8px #44e86a)' : 'none';
     if (!live && S.wasLive) { S.wasLive = false; $('tunn').classList.remove('ok'); $('tunst').classList.remove('ok'); } };
   S.spr = requestAnimationFrame(spring);
+  tunWake(true);
   el.addEventListener('click', e => { if (e.target === el) close(); });
   try { if (typeof gcEvt === 'function') gcEvt((TUN_INST === 'uke' ? 'ukulele' : MODE) + ': tuner open'); } catch (e) {}
   const start = async () => { $('tunp').hidden = true; $('tuns').textContent = 'Tap «Allow» when your phone asks.'; try {
@@ -312,12 +323,16 @@ async function openTuner() {
     const loop = now => { S.raf = requestAnimationFrame(loop); if (now - S.last < 70) return; S.last = now;
       if (S.mic.state !== 'running') S.mic.resume(); an.getFloatTimeDomainData(buf); let pk = 0; for (let k = 0; k < buf.length; k++) { const v = Math.abs(buf[k]); if (v > pk) pk = v; }
       const lv = $('tunl'); if (lv) lv.style.width = Math.min(100, Math.round(Math.sqrt(pk) * 140)) + '%'; const f = tunPitch(buf, S.mic.sampleRate, fmin, fmax);
-      if (!f) { if (pk > 0.02 && !S.hist.length) $('tuns').textContent = 'I hear sound: play one open string and let it ring.'; if (S.hist.length && now - S.seen > 900) { S.hist = []; S.prevM = null; S.sm = null; S.on0 = 0; } return; }
+      if (!f) { if (pk > 0.02 && !S.hist.length) $('tuns').textContent = 'I hear sound: play one open string and let it ring.'; if (S.hist.length && now - S.seen > 900) { S.hist = []; S.prevM = null; S.sm = null; S.on0 = 0; S.npk = 0; if (now - S.seen > 1500) S.ting = false; } return; }
       let m = 69 + 12 * Math.log2(f / 440);
       // error típico: oír una octava o una quinta por debajo (el Mi agudo como La grave); si la nota anterior encaja con un armónico, se corrige
       if (S.prevM != null && now - S.seen < 600) for (const off of [12, 19.02, 24, -12]) if (Math.abs(m + off - S.prevM) < 0.6) { m += off; break; }
-      // ataque: los primeros 120 ms de cada pulsación suenan algo altos; se ignoran
-      if (!S.hist.length && !S.on0) S.on0 = now; if (S.on0 && now - S.on0 < 120) { S.seen = performance.now(); S.prevM = m; return; } S.on0 = 0;
+      // nueva pulsación: el volumen sube de golpe. Sus primeros 250 ms suenan algo altos y se ignoran
+      const rr = tunPitch.rms; if (!S.hist.length || rr > (S.prr || 0) * 1.8) { if (!S.on0) S.on0 = now; S.npk = rr; } S.prr = rr; S.npk = Math.max(S.npk || 0, rr);
+      if (S.on0 && now - S.on0 < 250) { S.seen = performance.now(); S.prevM = m; return; } S.on0 = 0;
+      // cola de la nota (por debajo del 15 % de su volumen máximo) o lectura poco clara: no mueven la aguja
+      if (rr < S.npk * 0.15 || tunPitch.q > 0.25) { if (S.hist.length) S.seen = performance.now(); return; }
+      if (now < (S.mute || 0)) { S.seen = performance.now(); return; }
       // lecturas sueltas que se alejan más de medio semitono de las demás se descartan
       if (S.hist.length >= 3) { const md = S.hist.slice().sort((a, b) => a - b)[S.hist.length >> 1]; if (Math.abs(m - md) > 0.5 && ++S.odd < 3) { S.seen = performance.now(); return; } } S.odd = 0;
       S.seen = performance.now(); S.wasLive = true; S.prevM = m; S.hist.push(m); if (S.hist.length > 9) S.hist.shift();
@@ -329,8 +344,11 @@ async function openTuner() {
         i = S.cur; }
       const [nm, oc, target] = STR[i], raw = (med - target) * 100;
       // media suavizada: lenta cerca de la afinación, rápida si giras mucho la clavija o cambias de cuerda
-      if (S.smI !== i || S.sm == null || Math.abs(raw - S.sm) > 35) S.sm = raw; else S.sm += (raw - S.sm) * (Math.abs(raw - S.sm) > 12 ? 0.35 : 0.15); S.smI = i;
-      const cents = S.sm, ok = Math.abs(cents) <= (S.inTune ? 7 : 4); S.inTune = ok; S.tgt = Math.max(-50, Math.min(50, cents));
+      if (S.smI !== i || S.sm == null || Math.abs(raw - S.sm) > 35) { S.sm = raw; S.ting = false; } else S.sm += (raw - S.sm) * (Math.abs(raw - S.sm) > 12 ? 0.3 : Math.abs(S.sm) < 8 ? 0.07 : 0.14); S.smI = i;
+      const cents = S.sm, ok = Math.abs(cents) <= (S.inTune ? 7 : 4); S.inTune = ok;
+      // afinada: la aguja se queda quieta en el centro (las pequeñas variaciones se comprimen) y suena un «ting» una vez
+      S.tgt = ok ? cents * 0.25 : Math.max(-50, Math.min(50, cents));
+      if (ok && !S.ting) { S.ting = true; tunTing(S); } if (Math.abs(cents) > 10) S.ting = false;
       const near = Math.round(med), nn = TUN_NN[((near % 12) + 12) % 12];
       $('tunn').innerHTML = nm + '<sub>' + oc + '</sub>'; $('tunn').classList.toggle('ok', ok); $('tunst').classList.toggle('ok', ok); paintPills(i, ok);
       $('tunh').textContent = ok ? 'In tune' : Math.abs(cents) > 150 ? 'You are playing ' + nn + ' · aim for ' + nm : (cents > 0 ? '+' : '') + Math.round(cents) + ' cents · ' + (cents > 0 ? 'loosen a little' : 'tighten a little');
