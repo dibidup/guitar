@@ -188,18 +188,20 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--accent);outline
 
 body{padding:16px} .wrap{max-width:460px;margin:0 auto;display:grid;gap:14px} .seg{display:flex;gap:6px} .seg button{flex:1}
 </style></head><body><div class="wrap">
-<div class="top"><div class="brandrow"><div class="logo" role="img" aria-label="Dibidup Music"></div><div class="brand"><small>Dibidup Music · test page v6</small>Tuner</div></div></div>
+<div class="top"><div class="brandrow"><div class="logo" role="img" aria-label="Dibidup Music"></div><div class="brand"><small>Dibidup Music · test page v7</small>Tuner</div></div></div>
 <div class="card"><p class="muted" style="margin:0 0 10px">Test page for the tuner of the Guitar, Bass and Ukulele apps. Choose the instrument, then open the tuner.</p>
 <div class="seg"><button class="btn" data-i="guitar">Guitar</button><button class="btn ghost" data-i="bass">Bass</button><button class="btn ghost" data-i="uke">Ukulele</button></div>
-<div id="row"></div></div></div>
+<div id="row"></div></div>
+<div class="card"><b>Record a sample for Claude</b><p class="muted" style="margin:6px 0 10px">Press the button and play the six open strings one by one, low to high, letting each ring about 3 seconds. It records 25 seconds and saves a file named tuner-sample.webm (or .mp4) in Downloads. Nothing is sent anywhere.</p>
+<button class="btn" id="rec">Record 25 s</button> <span id="recs" class="muted"></span></div></div>
 <script>const $=id=>document.getElementById(id);const MODE='guitar';function gcEvt(){}
 // ---------------- afinador por micrófono (guitarra, bajo, ukelele). Todo se analiza en el móvil; no se graba nada.
 // Diseño: arco de −50 a +50 cents, nota grande con su octava y el clavijero del instrumento con una etiqueta por cuerda.
 let TUN_INST = 'guitar';
 // cada cuerda: nombre, octava, MIDI, lado de la etiqueta, fila (y en la imagen) y punta de la clavija (x en la imagen de 1199 de ancho)
 const TUN_ALLSETS = {
-  guitar: [{id: 'std', label: 'Guitar · Standard', img: 'tuner_guitar.jpg', h: 707, s: [
-    ['E', 2, 40, 'L', 337, 279], ['A', 2, 45, 'L', 230, 305], ['D', 3, 50, 'L', 122, 330], ['G', 3, 55, 'R', 122, 876], ['B', 3, 59, 'R', 230, 904], ['E', 4, 64, 'R', 337, 931]]}],
+  guitar: [{id: 'std', label: 'Guitar · Standard', img: 'tuner_guitar.jpg', h: 760, s: [
+    ['E', 2, 40, 'L', 373, 312], ['A', 2, 45, 'L', 255, 322], ['D', 3, 50, 'L', 138, 320], ['G', 3, 55, 'R', 138, 875], ['B', 3, 59, 'R', 255, 879], ['E', 4, 64, 'R', 373, 891]]}],
   bass: [{id: 'b4', label: 'Bass · 4 strings', img: 'tuner_bass4.jpg', h: 752, s: [
       ['E', 1, 28, 'L', 441, 258], ['A', 1, 33, 'L', 331, 311], ['D', 2, 38, 'L', 226, 352], ['G', 2, 43, 'L', 123, 392]]},
     {id: 'b5', label: 'Bass · 5 strings', img: 'tuner_bass5.jpg', h: 764, s: [
@@ -371,4 +373,9 @@ function draw(){ $('row').innerHTML=tunerRow(); wireTuner(); }
 document.querySelectorAll('.seg button').forEach(b=>b.onclick=()=>{TUN_INST=b.dataset.i;TUN_SETS=TUN_ALLSETS[TUN_INST];TUN_SET=TUN_SETS[0];try{const k=localStorage.getItem('dm-tun-'+TUN_INST);if(k)TUN_SET=TUN_SETS.find(x=>x.id===k)||TUN_SET;}catch(e){}TUN_NAME={guitar:'guitar',bass:'bass',uke:'ukulele'}[TUN_INST];
 document.querySelectorAll('.seg button').forEach(x=>x.className='btn'+(x===b?'':' ghost'));draw();});
 draw();
+$('rec').onclick=async()=>{try{const st=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:true}});
+const mt=['audio/webm;codecs=opus','audio/mp4','audio/webm'].find(t=>window.MediaRecorder&&MediaRecorder.isTypeSupported(t))||'';const r=new MediaRecorder(st,mt?{mimeType:mt,audioBitsPerSecond:128000}:{}),ch=[];
+r.ondataavailable=e=>ch.push(e.data);r.onstop=()=>{st.getTracks().forEach(t=>t.stop());const b=new Blob(ch,{type:r.mimeType}),a=document.createElement('a');a.href=URL.createObjectURL(b);
+a.download='tuner-sample.'+(r.mimeType.includes('mp4')?'mp4':'webm');document.body.appendChild(a);a.click();$('recs').textContent='Saved: '+a.download;};
+r.start();let n=25;$('recs').textContent='Recording… 25';const iv=setInterval(()=>{n--;$('recs').textContent=n>0?'Recording… '+n:'';if(n<=0){clearInterval(iv);r.stop();}},1000);}catch(e){$('recs').textContent='Microphone error: '+e.name;}};
 </script></body></html>
