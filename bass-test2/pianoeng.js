@@ -729,7 +729,20 @@ function ukVoicing(ch, kind, prev, lv, P) {        // rasgueo: las cuatro cuerda
   const notes = best.fr.map((f, s) => ({s, f, p: gSpell(ch, UKSTR[s] + f)})).sort((x, y) => x.p.m - y.p.m);
   return {ps: notes.map(n => n.p), fr: notes.map(n => [n.s, n.f]), avg: best.avg};
 }                    // E1 A1 D2 G2 (al aire)
+// bajo de 5 y 6 cuerdas: la digitación nueva solo se usa si es más cómoda que la de 4 cuerdas (menos trastes de distancia,
+// menos saltos, sin subir por el mástil); si no, la misma de 4 cuerdas en las cuerdas E-A-D-G. Nunca es peor que en 4 cuerdas.
 function tabFrets(notes, pos, lv, STR) {
+  if (STR || BASSI.strings === BSTR) return tabFrets1(notes, pos, lv, STR);
+  const S = BASSI.strings, off = S.indexOf(28), r5 = tabFrets1(notes, pos, lv, S);
+  if ((notes || []).some(n => !n.fr && n.ps && n.ps.length && Math.min(...n.ps.map(q => q.m)) - (n.art === 'b' ? 2 : 0) < 28)) return r5;   // hay notas por debajo del E
+  const r4 = tabFrets1(notes, pos, lv, BSTR), m4 = new Map();
+  for (const [n, q] of r4) m4.set(n, q && [q[0] + off, q[1]].concat(q.length > 2 ? [q[2].map(e => [e[0] + off, e[1]])] : []));
+  const score = r => { const fs = []; let pf = null, jumps = 0, moves = 0;
+    for (const n of notes) { const q = r.get(n); if (!q) continue; const f = q[1]; if (f > 0) { fs.push(f); if (pf !== null) { const d = Math.abs(f - pf); moves += d; if (d > 4) jumps++; } pf = f; } }
+    return fs.length ? (Math.max(...fs) - Math.min(...fs)) * 1.0 + jumps * 2 + moves * 0.05 + Math.max(...fs) * 0.15 : 0; };
+  return score(r5) < score(m4) - 0.75 ? r5 : m4;
+}
+function tabFrets1(notes, pos, lv, STR) {
   STR = STR || BASSI.strings;
   const BASSY = STR.includes(28) && STR.includes(43) && STR.every((v, i) => !i || v - STR[i - 1] === 5);   // bajo de 4, 5 o 6 cuerdas (afinación por cuartas)          // lv 1: prioriza cuerdas al aire; lv ≥ 2: posiciones cerradas en cajas de 4 trastes                    // digitación: posición cómoda y pocos saltos (programación dinámica)
   const seq = notes.filter(n => !n.wrapIn && !n.fr); const cost = [], cx = new Map();
