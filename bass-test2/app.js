@@ -176,7 +176,7 @@ function renderPlayer() {
   <div class="mix chs">${MODE === 'guitar' ? chan('gt', UKE ? 'Ukulele' : 'Guitar') + chan('dr', 'Drums') + chan('bs', 'Bass') : MODE === 'bass' ? chan('bs', 'Bass') + chan('dr', 'Drums') + chan('kb', 'Keys') : chan('rh', 'Right hand') + chan('lh', 'Left hand') + chan('dr', 'Drums') + chan('bs', 'Bass')}</div>
   <div class="opts">${MODE !== 'piano' ? '' : `<label><input type="radio" name="snd" value="piano" ${SOUND === 'piano' ? 'checked' : ''}><span>Acoustic piano</span></label><label><input type="radio" name="snd" value="ep" ${SOUND === 'ep' ? 'checked' : ''}><span>Electric piano</span></label>`}<label><input type="checkbox" id="metro" ${METRO ? 'checked' : ''}><span>Metronome</span></label><label><input type="checkbox" id="countin" ${COUNTIN ? 'checked' : ''}><span>Count-in</span></label></div>
   <div class="syncrow"><span>Sync</span><button id="sydn" aria-label="Show the score earlier">−</button><b id="syval">${SYNC > 0 ? '+' : ''}${SYNC} ms</b><button id="syup" aria-label="Show the score later">+</button><small>If the moving bar runs ahead of the sound, press +; if it lags behind, press −.</small></div>
-  <p class="tip">${esc(P.tip)}</p>
+  <p class="tip">${esc(P.tip)}${MODE === 'bass' && /^1\.\d+[a-z]?$/.test(P.num) && ![1, 2, 3, 4, 7, 16, 37, 38, 39, 40, 41, 42, 43, 44, 76].includes(parseInt(P.num.split('.')[1])) ? '<br><b>Mastered? Now play it in all keys with − and +.</b>' : ''}</p>
   <div class="rail" id="rail" aria-label="Quick controls">
     <button id="rplay" class="rbig" aria-label="Play"><svg viewBox="0 0 24 24"><path d="M7 4.5v15l13-7.5z"/></svg></button>
     <div class="rrow"><button id="rprev" aria-label="Previous pattern">‹</button><button id="rnext" aria-label="Next pattern">›</button></div>
