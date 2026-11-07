@@ -200,6 +200,9 @@ function expand(P, opt) {
       const lo = Math.min(...r.flatMap(x => x.ps.map(q => q.m)));
       if (Math.max(...l.ps.map(q => q.m)) >= lo && Math.min(...l.ps.map(q => q.m)) - 12 >= 28) drop.add(key(l)); }
     for (const l of hands.lh) if (drop.has(key(l))) l.ps = l.ps.map(q => spell(q.l, q.m - 12)); }
+  // bajo: cada tónica sabe si su acorde es menor o mayor (digitación de 5 y 6 cuerdas: menor, dedo 1 en la tónica; mayor, dedo 2)
+  if (hands.bs) for (const nt of hands.bs) { const c = cs.filter(q => q.s <= nt.s).pop(); if (!c || !c.ch || !c.ch.root || !nt.ps.length) continue;
+    if (mod(nt.ps[0].m - pcL(c.ch.root.l) - c.ch.root.a, 12) === 0) nt.rt = c.ch.minor ? 'm' : 'M'; }
   return {nb, n, M, cs, hands, dyn, key: tr ? transposeKey(P.key || 'C', tr) : (P.key || 'C')};
 }
 
@@ -739,7 +742,9 @@ function tabFrets(notes, pos, lv, STR) {
   for (const [n, q] of r4) m4.set(n, q && [q[0] + off, q[1]].concat(q.length > 2 ? [q[2].map(e => [e[0] + off, e[1]])] : []));
   const score = r => { const fs = []; let pf = null, jumps = 0, moves = 0;
     for (const n of notes) { const q = r.get(n); if (!q) continue; const f = q[1]; if (f > 0) { fs.push(f); if (pf !== null) { const d = Math.abs(f - pf); moves += d; if (d > 4) jumps++; } pf = f; } }
-    return fs.length ? (Math.max(...fs) - Math.min(...fs)) * 1.0 + jumps * 2 + moves * 0.05 + Math.max(...fs) * 0.15 : 0; };
+    // tónica y caja de la mano: menor, de la tónica a 3 trastes arriba; mayor, de un traste por debajo a 2 arriba
+    let viol = 0, box = null; for (const n of notes) { const q = r.get(n); if (!q || !q[1]) continue; if (n.rt) box = n.rt === 'm' ? [q[1], q[1] + 3] : [q[1] - 1, q[1] + 2]; else if (box && (q[1] < box[0] || q[1] > box[1])) viol++; }
+    return fs.length ? (Math.max(...fs) - Math.min(...fs)) * 1.0 + jumps * 2 + moves * 0.05 + Math.max(...fs) * 0.15 + viol * 1.0 : 0; };
   return score(r5) < score(m4) - 0.75 ? r5 : m4;
 }
 function tabFrets1(notes, pos, lv, STR) {
@@ -770,7 +775,7 @@ function tabFrets1(notes, pos, lv, STR) {
     const cur = new Map();
     cs.forEach(([s, f, ex], k) => P0.forEach(p => {
       if (!fits(f, p, ex)) return;
-      const sa = seq[i].art, base = fc(s, f) + (cx.get(cs[k]) || 0) + (sa === 'P' && s < STR.length - 2 ? 3 : 0) + (sa === 'T' && s === STR.length - 1 ? 1.5 : 0);   // slap: pop en D/G, pulgar en E/A/D
+      const sa = seq[i].art, base = fc(s, f) + (cx.get(cs[k]) || 0) + (STR.length > 4 && seq[i].rt && f > 0 ? Math.abs(p - (seq[i].rt === 'm' ? f : f - 1)) * 1.5 : 0) + (sa === 'P' && s < STR.length - 2 ? 3 : 0) + (sa === 'T' && s === STR.length - 1 ? 1.5 : 0);   // slap: pop en D/G, pulgar en E/A/D
       if (!i) { cur.set(k + '|' + p, {c: base + (f ? 0 : 0), bk: null}); return; }
       let best = 1e9, bk = null;
       for (const [key, v] of prev) { const [k0, p0] = key.split('|').map(Number); const [s0] = C[i - 1][k0];
