@@ -618,7 +618,7 @@ if ('serviceWorker' in navigator && /^https:$/.test(location.protocol) && !/clau
 // guitarra: al girar el móvil, se recoloca la partitura (2 compases por línea en vertical)
 if (MODE !== 'bass') { let wasN = innerWidth < 700; addEventListener('resize', () => { const n = innerWidth < 700; if (n !== wasN && !playing && $('score')) { wasN = n; drawScore(); } }); }
 
-window.ACT_CFG = {book: 'guitar', store: 'pg-codes', open: ['technique'], ask: [
+window.ACT_CFG = {book: 'guitartest', store: '__test_nobody__', open: ['technique'], ask: [
   {sid: 'blues', ch: 5, page: 86, title: 'Blues and Shuffle'}, {sid: 'neosoul', ch: 6, page: 97, title: 'Hip-Hop and Neo-Soul'},
   {sid: 'jazz', ch: 7, page: 108, title: 'Jazz'}, {sid: 'country', ch: 8, page: 120, title: 'Country'},
   {sid: 'folk', ch: 9, page: 131, title: 'Folk and Acoustic'}, {sid: 'reggae', ch: 10, page: 143, title: 'Reggae and Ska'},
