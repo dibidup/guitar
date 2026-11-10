@@ -217,6 +217,7 @@ function prepGtr(P) {
     if (fr && fr.length > 1) CHFR.set(nt, nt.vfr ? nt.vfr.slice().sort((p, q) => p[0] - q[0]) : fr); FRETS.set(nt, fr || [r].filter(Boolean)); }
   const vfrArp = new Map(); for (const nt of X.hands.gt || []) if (nt.vfr && nt.fr && nt.fr.length === 1) vfrArp.set(nt, nt.vfr.slice().sort((p, q) => p[0] - q[0]));   // ukelele: punteo sobre la forma del acorde
   // arpegios: las notas sueltas de un mismo acorde que caen en cuerdas distintas (una por cuerda, palmo ≤ 4 trastes) forman su forma de acorde
+  const LICK = /[bqv]/.test(Object.values(P.art || {}).join(''));
   ARP = new Map(); const segs = X.cs.map((c, k) => [Math.max(0, c.s), k + 1 < X.cs.length ? Math.max(0, X.cs[k + 1].s) : L]);
   for (const [a, z] of segs) { const ns = (X.hands.gt || []).filter(nt => nt.s >= a && nt.s < z && !CHFR.has(nt) && m.get(nt) && !nt.wrapIn);
     if (ns.length < 3) continue; const cnt = new Map();   // en cada cuerda, el traste más tocado forma parte de la forma; el resto son notas de paso
@@ -226,6 +227,13 @@ function prepGtr(P) {
     const fx = [...byS.values()].filter(f => f > 0);
     if (byS.size < 3 || extra > ns.length * 0.3 || (fx.length && Math.max(...fx) - Math.min(...fx) > 4)) continue;
     let shape = [...byS.entries()].sort((p, q) => p[0] - q[0]);
+    if (LICK) continue;   // frases de solo (con bends o vibratos): notas sueltas, sin forma de acorde
+    // solo es arpegio si las notas de la forma son notas del acorde (si no, es una frase de escala o un riff y se ven notas sueltas)
+    try { const k0 = segs.findIndex(sg => sg[0] === a), sym0 = X.cs[k0] && X.cs[k0].sym;
+      if (sym0) { const pc = PIANO.parseChord(sym0), rp = r => ({C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11})[r.l] + r.a, r0 = rp(pc.root);
+        const pcs = new Set(Object.values(pc.iv).map(v => ((r0 + v[1]) % 12 + 12) % 12)); if (pc.bass) pcs.add(((rp(pc.bass)) % 12 + 12) % 12);
+        const G = UKE ? PIANO.UKSTR : PIANO.GSTR;
+        const off = shape.filter(([st, f]) => !pcs.has((G[st] + f) % 12)).length; if (off > (shape.length >= 4 ? 1 : 0)) continue; } } catch (e) {}   // con 4 cuerdas o más se admite una nota de adorno
     // si las notas caben en la forma normal del acorde (p. ej. el Do abierto), se enseña la forma completa
     try { const k = segs.findIndex(sg => sg[0] === a), sym = X.cs[k] && X.cs[k].sym;
       if (sym) { const V = PIANO.expand({ch: sym, gtr: 'C' + '-'.repeat(X.n - 1), key: P.key || 'C', lv: P.lv || 2, meter: P.meter, inst: P.inst}).hands.gt[0], vf = V && V.fr;
@@ -384,16 +392,18 @@ function drawFret() {
   for (let f = 0; f <= NF; f++) h += `<line x1="${sx(f)}%" y1="10%" x2="${sx(f)}%" y2="84%" class="${f ? 'fw' : 'nut'}"/>`;   // los trastes acaban en la primera y la última cuerda
   [3, 5, 7, 9, 12, 15, 17, 19, 21, 24].filter(f => f <= NF).forEach(f => h += `<circle cx="${sx(f - 0.5)}%" cy="47%" r="3.5" class="fdot"/>`);
   const NSx = MODE === 'guitar' && !UKE ? 6 : 4, dy = 74 / (NSx - 1);
-  for (let st = 0; st < NSx; st++) h += `<line x1="${sx(0)}%" y1="${84 - st * dy}%" x2="97%" y2="${84 - st * dy}%" class="str" style="stroke-width:${UKE ? 1.9 : (MODE === 'guitar' ? 2.2 : 2.6) - st * (MODE === 'guitar' ? 0.32 : 0.45)}"/>`;
+  for (let st = 0; st < NSx; st++) h += `<line id="s${st}" x1="${sx(0)}%" y1="${84 - st * dy}%" x2="97%" y2="${84 - st * dy}%" class="str" style="stroke-width:${UKE ? 1.9 : (MODE === 'guitar' ? 2.2 : 2.6) - st * (MODE === 'guitar' ? 0.32 : 0.45)}"/>`;
   const used = new Set(); if (FRETS) for (const [nt, fr] of FRETS.entries()) if (fr && !(GDIAG && (CHFR.has(nt) || ARP.has(nt)))) (Array.isArray(fr[0]) ? fr : [fr]).forEach(q => q && used.add(q[0] + '_' + q[1]));
   for (let st = 0; st < NSx; st++) for (let f = 0; f <= NF; f++) h += `<circle id="f${st}_${f}" cx="${f ? sx(f - 0.5) : 1.5}%" cy="${84 - st * dy}%" r="${(MODE === 'guitar' && !UKE ? 5.5 : 7) * (NF > 16 ? 0.8 : 1)}" class="fn${used.has(st + '_' + f) ? ' used' : ''}"/>`;
   for (const f of [3, 5, 7, 9, 12, 15, 17, 19, 21, 24].filter(f => f <= NF)) h += `<text x="${sx(f - 0.5)}%" y="100%" text-anchor="middle" class="kl">${f}</text>`;
   if (GDIAG) h += '<g id="chd"></g>';
-  box.innerHTML = `<svg width="100%" height="${MODE === 'guitar' && !UKE ? 104 : 90}" aria-hidden="true">${h}</svg>`;
+  if (bendv()) h += '<path id="bs_" class="bstr" d="" style="display:none;fill:none;stroke:#cfc6b4"/>';
+  box.innerHTML = `<svg width="100%" height="${MODE === 'guitar' && !UKE ? 104 : 90}" aria-hidden="true">${h}</svg>`; FBG = {NF, NSx, dy, sx};
   if (GDIAG) showChord([...CHFR.values()][0] || [...ARP.values()].filter(v => Array.isArray(v))[0] || null, 0);
 }
 // guitarra (prueba): el acorde se ve como diagrama completo en el mástil (cejilla incluida) y late con cada rasgueo
 const GDIAG = MODE === 'guitar';
+const bendv = () => MODE === 'guitar' && !UKE;   // bends y vibratos dibujados en el mástil
 function chordFingers(fr) {
   const fx = fr.filter(q => q[1] > 0), opens = fr.some(q => q[1] === 0), minF = fx.length ? Math.min(...fx.map(q => q[1])) : 0;
   const atMin = fx.filter(q => q[1] === minF), sts = atMin.map(q => q[0]);
@@ -470,12 +480,18 @@ function strike(k, ch, t) {
   else if (k === 'bd') play1('kick', t);
   else if (k === 'sn') { if (ch === 'c') play1('xstick', t, .9); else if (ch === 'g') play1('ghost', t); else play1(ch === 'A' ? 'snareA' : 'snare', t, .9); }
 }
-function note(inst, m, t, dur, lv, from) {
+function note(inst, m, t, dur, lv, from, vib) {
   const P = INST[inst]; if (!P) return; let best = null; for (const k of Object.keys(P)) if (best === null || Math.abs(+k - m) < Math.abs(best - m)) best = +k;
   const B = P[best]; const src = ctx.createBufferSource(); src.buffer = B.b; src.playbackRate.value = Math.pow(2, (m - best) / 12);
   if (from != null) { src.playbackRate.setValueAtTime(Math.pow(2, (from - best) / 12), t); src.playbackRate.linearRampToValueAtTime(Math.pow(2, (m - best) / 12), t + (Math.abs(from - m) === 2 ? 0.14 : 0.07)); }
   const g = ctx.createGain(); src.connect(g); g.connect(master); if (!inst.startsWith('bass')) g.connect(REVIN);
   const rel = inst.startsWith('bass') ? .04 : .09, end = t + dur;
+  if (vib && dur > 0.18 && src.detune) {   // vibrato: la nota sube y vuelve (empujar y soltar la cuerda) unas 5,5 veces por segundo, entrando poco a poco
+    const lfo = ctx.createOscillator(), dg = ctx.createGain(), dc = ctx.createConstantSource ? ctx.createConstantSource() : null, cg = ctx.createGain();
+    lfo.frequency.value = VIBHZ; lfo.connect(dg); dg.connect(src.detune); const t0 = t + 0.08, t1 = t + Math.min(0.35, dur * 0.5);
+    dg.gain.setValueAtTime(0, t); dg.gain.setValueAtTime(0, t0); dg.gain.linearRampToValueAtTime(22, t1);
+    lfo.start(t0 + 0.25 / VIBHZ); lfo.stop(end + rel * 6);
+    if (dc) { dc.connect(cg); cg.connect(src.detune); cg.gain.setValueAtTime(0, t); cg.gain.setValueAtTime(0, t0); cg.gain.linearRampToValueAtTime(22, t1); dc.start(t); dc.stop(end + rel * 6); } }
   g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(lv, t + 0.004);                // entrada sin clic
   g.gain.setValueAtTime(lv, end); g.gain.setTargetAtTime(0, end, rel); src.start(t, B.o); src.stop(end + rel * 6);
   // la misma tecla otra vez: apaga la anterior (como el apagador de un piano)
@@ -511,7 +527,9 @@ function schedule() {
         const prev = nt.art === '/' ? (NOTES.hands.gt[NOTES.hands.gt.indexOf(nt) - 1] || null) : null;
         order.forEach((k, j) => { const m = nt.ps[k].m, tt = t + j * gap;
           if (ghost) note('gmute', m, tt, .05, lv * 1.2);
-          else note(palm ? 'gmute' : (INST[tone] ? tone : 'gclean'), m, tt, palm ? Math.min(dur, .16) : dur, lv, nt.art === 'b' ? m - 2 : prev ? prev.ps[0].m : null); });
+          else note(palm ? 'gmute' : (INST[tone] ? tone : 'gclean'), m, tt, palm ? Math.min(dur, .16) : dur, lv, nt.art === 'b' ? m - 2 : nt.art === 'q' ? m - 1 : prev ? prev.ps[0].m : null, nt.art === 'v'); });
+        if (bendv() && (nt.art === 'b' || nt.art === 'q') && frs[0]) visQ.push([t, 'bend', frs[0][0], frs[0][1], nt.art === 'b' ? 1 : 0.5, Math.max(.1, dur * 0.92)]);
+        if (bendv() && nt.art === 'v' && frs[0] && dur > 0.18) visQ.push([t, 'vib', frs[0][0], frs[0][1], Math.max(.1, dur * 0.92)]);
         if (GDIAG && CHFR.has(nt)) { const cf = CHFR.get(nt); visQ.push([t, 'c', cf, 1, ghost]); visQ.push([t + Math.min(.13, dur * 0.6), 'c', cf, 0]); }
         else if (GDIAG && ARP.has(nt)) { const a = ARP.get(nt), sh = a.shape || a, key = frs[0] ? frs[0][0] + '_' + frs[0][1] : null;   // arpegio: la forma del acorde y cada nota encendida dentro de ella
           visQ.push([t, 'ca', sh]); if (key) { const ev = a.shape ? 'f' : 'cn'; visQ.push([t, ev, key, 1]); visQ.push([t + Math.max(.08, dur * 0.92), ev, key, 0]); } }
@@ -552,6 +570,25 @@ function schedule() {
   }
 }
 // sincronía imagen-sonido: lo que se ve se retrasa lo que tarda el sonido en salir por el altavoz (latencia de salida del móvil o del Bluetooth)
+let FBG = null, BENDS = [];
+const VIBHZ = 5.5;
+// bend: la cuerda se dobla hacia el centro del mástil mientras sube la nota y vuelve al soltarla; vibrato: sube y baja con el sonido
+function bendFrame(now) {
+  BENDS = BENDS.filter(b => now < b.t1 + 0.12); const pth = $('bs_'); if (!FBG || !pth) return;
+  const b = BENDS.filter(b => now >= b.t0).pop();
+  document.querySelectorAll('#kbd line.str').forEach(l => l.style.opacity = ''); document.querySelectorAll('#kbd .fn').forEach(c => c.style.transform = '');
+  if (!b) { pth.style.display = 'none'; return; }
+  const sv = pth.ownerSVGElement, W = sv.getBoundingClientRect().width, H = sv.getBoundingClientRect().height, {sx, dy, NSx} = FBG;
+  let k, amt;
+  if (b.vib) { const a = now - b.t0, ramp = Math.min(1, Math.max(0, (a - 0.08) / 0.27)), down = now > b.t1 ? Math.max(0, 1 - (now - b.t1) / 0.1) : 1;
+    k = (0.5 - 0.5 * Math.cos(2 * Math.PI * VIBHZ * Math.max(0, a - 0.08))) * ramp * down; amt = 0.55; }
+  else { const up = Math.min(1, (now - b.t0) / (b.amt >= 1 ? 0.14 : 0.08)), down = now > b.t1 ? Math.max(0, 1 - (now - b.t1) / 0.1) : 1; k = up * down; amt = b.amt; }
+  const y0 = (84 - b.st * dy) / 100 * H, dir = b.st < (NSx - 1) / 2 ? -1 : 1, off = dir * k * amt * dy / 100 * H * 0.75;
+  const xn = sx(0) / 100 * W, xe = 0.97 * W, xf = sx(b.f - 0.5) / 100 * W, xa = sx(b.f) / 100 * W;
+  const ln = $('s' + b.st); if (ln) { ln.style.opacity = '0'; pth.style.strokeWidth = ln.style.strokeWidth; }
+  pth.setAttribute('d', `M${xn},${y0} L${sx(Math.max(0, b.f - 1)) / 100 * W},${y0} Q${xf},${y0 + off * 1.2} ${xa},${y0 + off} L${xe},${y0 + off * 0.15}`); pth.style.display = '';
+  const c = $('f' + b.st + '_' + b.f); if (c) c.style.transform = `translateY(${off}px)`;
+}
 let SYNC = 0; try { SYNC = +(localStorage.getItem('pg-sync') || 0) || 0; } catch (e) {}   // ajuste fino del usuario, en ms (+ = la imagen más tarde)
 const outLat = () => { try { return Math.min(0.35, (ctx.outputLatency || 0) + (ctx.baseLatency || 0)); } catch (e) { return 0; } };
 function draw() {
@@ -564,10 +601,13 @@ function draw() {
     else if (e[1] === 'c') showChord(e[2], e[3], e[4]);
     else if (e[1] === 'ca') { const g = $('chd'); if (g && g.dataset.sh !== JSON.stringify(e[2])) showChord(e[2], 0); if (g) { g.setAttribute('class', 'arp'); const sv = g.ownerSVGElement; if (sv) sv.classList.add('chordmode'); } }
     else if (e[1] === 'cn') { const el = $('cd' + e[2]); if (el) el.classList.toggle('lit', !!e[3]); }
+    else if (e[1] === 'bend') BENDS.push({st: e[2], f: e[3], amt: e[4], t0: e[0], t1: e[0] + e[5]});
+    else if (e[1] === 'vib') BENDS.push({st: e[2], f: e[3], vib: 1, t0: e[0], t1: e[0] + e[4]});
     else if (e[1] === 'cd') { const g = $('chd'); if (g && g.innerHTML) g.setAttribute('class', 'dim'); }   // el acorde queda atenuado; solo se ven además las notas que suenan
     else { if (e[4] && MODE === 'piano' && !$('k' + e[2])) shiftKbd(e[2]);
       const el = $('k' + e[2]); if (el) { const c = (lit.get(e[2]) || 0) + (e[4] ? 1 : -1); lit.set(e[2], Math.max(0, c)); el.classList.toggle('on', c > 0); el.classList.toggle(e[3], c > 0); } }
   }
+  if (bendv()) bendFrame(now);
   requestAnimationFrame(draw);
 }
 async function play() {
