@@ -107,8 +107,8 @@ function wireMoreBooks() {
 }
 // ---------------- reseña en Amazon: fila fija en la biblioteca y tarjeta visible (una vez; «Not now» vuelve a las 2 semanas, máx. 3)
 const STAR = '<svg class="rstar" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.5l2.9 6.1 6.6.8-4.9 4.6 1.3 6.6L12 17.3l-5.9 3.3 1.3-6.6L2.5 9.4l6.6-.8z"/></svg><i class="rsp a"></i><i class="rsp b"></i>';
-function rateSt() { let r = {}; try { r = JSON.parse(localStorage.getItem('dm-rate') || '{}'); } catch (e) {} if (!r.first) { r.first = Date.now(); rateSave(r); } return r; }
-function rateSave(r) { try { localStorage.setItem('dm-rate', JSON.stringify(r)); } catch (e) {} }
+function rateSt() { let r = {}; try { r = JSON.parse(localStorage.getItem('dm-rate-improv') || '{}'); } catch (e) {} if (!r.first) { r.first = Date.now(); rateSave(r); } return r; }
+function rateSave(r) { try { localStorage.setItem('dm-rate-improv', JSON.stringify(r)); } catch (e) {} }
 function rateUrl() { const me = (typeof BOOK_ID !== 'undefined') ? BOOK_ID : MODE, b = MORE_BOOKS.find(x => x.id === me); if (!b || !b.asin) return null;
   const st = amazonStore(), asin = (b.asinIntl && st.s !== 'us' && st.s !== 'ca') ? b.asinIntl : b.asin; return 'https://www.' + st.dom + '/review/create-review?asin=' + asin; }
 function rateCss() { if (document.getElementById('rtcss')) return; const c = document.createElement('style'); c.id = 'rtcss';
