@@ -415,7 +415,7 @@ const HST = {p: {st: 1, on: 0, pre: 0}, i: {st: 3, on: 0, pre: 0}, m: {st: 4, on
 function handFinger(nt, st) { const P = cur(), pf = ((P.pf || {}).gt || '').replace(/[|\s]/g, ''), c = pf[nt.s] || '.';
   if (c === 'p' && st <= 2) return 'p'; if ('ima'.includes(c) && c !== '.' && st >= 3) return c;
   return st <= 2 ? 'p' : st === 3 ? 'i' : st === 4 ? 'm' : 'a'; }
-window.__handNote = (t, nt, st, d) => { if (HANDON) HQ.push({t, f: handFinger(nt, st), st, d: Math.max(.22, Math.min(.9, d))}); };
+window.__handNote = (t, nt, st, d, fr) => { if (HANDON) HQ.push({t, f: handFinger(nt, st), st, fr: fr || 0, d: Math.max(.22, Math.min(.9, d))}); };
 const RHX = {p: 71, i: 79, m: 84.5, a: 90};   // inclinados: i a la izquierda, a a la derecha; el pulgar más hacia el mástil
 function rhZone(dy) { const Y = st => 84 - st * dy;
   return ['p', 'i', 'm', 'a'].map(f => `<g class="rhf" id="nf_${f}"><circle cx="${RHX[f]}%" cy="${Y(HST[f].st)}%" r="${f === 'p' ? 9 : 8}" fill="#161514" stroke="${HCOL[f]}" stroke-width="2.2"/><text x="${RHX[f]}%" y="${Y(HST[f].st)}%" text-anchor="middle" dominant-baseline="central" font-weight="700" font-size="11" fill="${HCOL[f]}">${f}</text></g>`).join(''); }
@@ -428,15 +428,15 @@ function handFrame() { requestAnimationFrame(handFrame); if (!ctx || !HANDON || 
   const now = ctx.currentTime - (typeof SYNC === 'number' ? SYNC / 1000 : 0);
   for (const f in HST) HST[f].pre = 0;
   for (let k = HQ.length - 1; k >= 0; k--) { const q = HQ[k];
-    if (q.t <= now) { const h = HST[q.f]; h.st = q.st; h.on = q.t + Math.min(q.d, .35); SV[q.st] = {t: q.t, d: q.d, c: '#e0b562'}; HQ.splice(k, 1); }
+    if (q.t <= now) { const h = HST[q.f]; h.st = q.st; h.on = q.t + Math.min(q.d, .35); SV[q.st] = {t: q.t, d: q.d, fr: q.fr}; HQ.splice(k, 1); }
     else if (q.t - now < .2) HST[q.f].pre = 1; else if (q.t - now > 30) HQ.splice(k, 1); }
   for (const f in HST) { const h = HST[f], g = $('nf_' + f); if (!g) continue; const on = now < h.on, c = g.firstChild, tx = c.nextSibling, y = Yp(h.st) + '%';
     c.setAttribute('cy', y); tx.setAttribute('y', y); c.setAttribute('cx', (RHX[f] + (on ? .6 : 0)) + '%'); tx.setAttribute('x', (RHX[f] + (on ? .6 : 0)) + '%');
     c.setAttribute('fill', on ? HCOL[f] : '#161514'); c.setAttribute('stroke-width', on ? 0 : h.pre ? 4.2 : 2.2); c.setAttribute('r', (f === 'p' ? 9 : 8) + (on ? 1.5 : 0)); tx.setAttribute('fill', on ? '#111' : HCOL[f]); }
-  SV.forEach((v, st) => { const el = $('s' + st); if (!el) return; const e = now - v.t, act = e >= 0 && e <= v.d;
-    if (act) { el.style.stroke = v.c; el.style.opacity = String(1 - .5 * e / v.d); el.classList.add('vibr'); } else if (el.classList.contains('vibr')) { el.style.stroke = ''; el.style.opacity = ''; el.classList.remove('vibr'); } }); }
+  SV.forEach((v, st) => { const el = $('sv' + st); if (!el) return; const e = now - v.t, act = e >= 0 && e <= v.d;   // la cuerda vibra desde donde la pisa la izquierda (o desde la cejuela, al aire) hasta el final
+    if (act) { el.style.display = ''; el.setAttribute('x1', FBG.sx(v.fr || 0) + '%'); el.style.opacity = String(1 - .45 * e / v.d); } else if (el.style.display !== 'none') el.style.display = 'none'; }); }
 requestAnimationFrame(handFrame);
-(function () { const c = document.createElement('style'); c.textContent = '.shole{fill:#0d0c0b;stroke:#3a3835;stroke-width:1}@keyframes vibr{0%{transform:translateY(0)}25%{transform:translateY(.9px)}75%{transform:translateY(-.9px)}100%{transform:translateY(0)}}.str.vibr{animation:vibr .05s linear infinite}#handv{margin:8px 0 4px}#handv .hleg{display:flex;gap:12px;align-items:center;flex-wrap:wrap;font:600 12px var(--body);color:var(--muted);margin-top:4px}#handv .hleg i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:4px;vertical-align:-1px}#handv .hleg small{font-weight:400}'; document.head.appendChild(c); })();
+(function () { const c = document.createElement('style'); c.textContent = '.shole{fill:#0d0c0b;stroke:#3a3835;stroke-width:1}@keyframes vibr{0%{transform:translateY(0)}25%{transform:translateY(.9px)}75%{transform:translateY(-.9px)}100%{transform:translateY(0)}}.svib{stroke:#fff36b;stroke-width:3.2;stroke-linecap:round;filter:drop-shadow(0 0 2px #ffe000) drop-shadow(0 0 6px #ffc400);animation:vibr .05s linear infinite}#handv{margin:8px 0 4px}#handv .hleg{display:flex;gap:12px;align-items:center;flex-wrap:wrap;font:600 12px var(--body);color:var(--muted);margin-top:4px}#handv .hleg i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:4px;vertical-align:-1px}#handv .hleg small{font-weight:400}'; document.head.appendChild(c); })();
 function fsWire() {
   $('fshand').onclick = () => { HANDON = !HANDON; $('fshand').setAttribute('aria-pressed', HANDON); drawFret(); };
   const P = cur(), T = (f) => { const v = Math.round(P.bpm * f); $('tempo').value = v; $('bpm').textContent = v; TPCT = f; $('pct').textContent = f !== 1 ? Math.round(f * 100) + '% · ' : ''; };
@@ -642,6 +642,7 @@ function drawFret() {
   for (const f of [3, 5, 7, 9, 12, 15, 17, 19, 21, 24].filter(f => f <= NF)) h += `<text x="${sx(f - 0.5)}%" y="100%" text-anchor="middle" class="kl">${f}</text>`;
   if (FSK) h = `<ellipse cx="82%" cy="47%" rx="10%" ry="44%" class="shole"/>` + h;
   if (GDIAG) h += '<g id="chd"></g>';
+  if (FSK) for (let st = 0; st < NSx; st++) h += `<line id="sv${st}" x1="${sx(0)}%" y1="${84 - st * dy}%" x2="97%" y2="${84 - st * dy}%" class="svib" style="display:none"/>`;
   if (FSK && HANDON) h += rhZone(dy);
   if (bendv()) h += '<path id="bs_" class="bstr" d="" style="display:none"/><path id="bs_2" class="bstr" d="" style="display:none"/>';
   box.innerHTML = `<svg${IMPV ? ' class="impv"' : ''} width="100%" height="${IMPV ? Math.round(Math.max(84, Math.min(150, (box.clientWidth || innerWidth) * 0.17, innerHeight * 0.22))) : MODE === 'guitar' && !UKE ? 104 : 90}" aria-hidden="true">${h}</svg>`; FBG = {NF, NSx, dy, sx};   // improvisación (nov 2026): el mástil crece si la pantalla tiene sitio (tableta, ordenador)
@@ -830,7 +831,7 @@ function schedule() {
         GT_T0 = t;
         order.forEach((k, j) => { const m = nt.ps[k].m, tt = t + j * gap;
           if (FSV !== 'all' && frs[k]) { const th = frs[k][0] <= 2; if ((FSV === 'thumb') !== th) return; }
-          if (frs[k] && window.__handNote) window.__handNote(tt, nt, frs[k][0], dur);
+          if (frs[k] && window.__handNote) window.__handNote(tt, nt, frs[k][0], dur, frs[k][1]);
           if (ghost) note('gmute', m, tt, .05, lv * 1.2, null, false, frs[k] ? 'gs' + frs[k][0] : null);
           else { const a = nt.art, bu = (a === 'b' || a === 'W' || a === 'Y') ? 2 : (a === 'q' || a === 'N' || a === 'K') ? 1 : a === 'G' ? 3 : a === 'J' ? 4 : a === 'L' ? 2 : a === 'O' ? (k === 0 ? 2 : 0) : a === 'o' ? (k === 0 ? 1 : 0) : 0;   // nov 2026: bends grandes, tras la cejuela y en double stops (O/o: solo la primera nota)
             const HS = !!INST.gharm && (a === 'H' || a === 'A' || a === 'I');   // 21/11/2026: armónicos con muestras reales (FluidR3 «Guitar Harmonics»)
