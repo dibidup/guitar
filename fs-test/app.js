@@ -428,7 +428,7 @@ function handFrame() { requestAnimationFrame(handFrame); if (!ctx || !HANDON || 
   const now = ctx.currentTime - (typeof SYNC === 'number' ? SYNC / 1000 : 0);
   for (const f in HST) HST[f].pre = 0;
   for (let k = HQ.length - 1; k >= 0; k--) { const q = HQ[k];
-    if (q.t <= now) { const h = HST[q.f]; h.st = q.st; h.on = q.t + Math.min(q.d, .35); SV[q.st] = {t: q.t, d: q.d, c: HCOL[q.f]}; HQ.splice(k, 1); }
+    if (q.t <= now) { const h = HST[q.f]; h.st = q.st; h.on = q.t + Math.min(q.d, .35); SV[q.st] = {t: q.t, d: q.d, c: '#e0b562'}; HQ.splice(k, 1); }
     else if (q.t - now < .2) HST[q.f].pre = 1; else if (q.t - now > 30) HQ.splice(k, 1); }
   for (const f in HST) { const h = HST[f], g = $('nf_' + f); if (!g) continue; const on = now < h.on, c = g.firstChild, tx = c.nextSibling, y = Yp(h.st) + '%';
     c.setAttribute('cy', y); tx.setAttribute('y', y); c.setAttribute('cx', (RHX[f] + (on ? .6 : 0)) + '%'); tx.setAttribute('x', (RHX[f] + (on ? .6 : 0)) + '%');
