@@ -362,7 +362,7 @@ function renderPlayer() {
   <input type="range" id="tempo" min="30" max="220" value="${T0}" aria-label="Tempo">
   <div class="steps"><button data-f=".5">50%</button><button data-f=".75">75%</button><button data-f=".9">90%</button><button data-f="1">100%</button><button data-d="-4">−4</button><button data-d="4">+4</button></div></div></div>
   <div class="fsrow"><span>Hands</span><div class="fsv" role="group" aria-label="Which hand plays">${[['all', 'All'], ['thumb', 'Thumb (p)'], ['fingers', 'Fingers (i m a)']].map(([k, l]) => `<button data-fsv="${k}" aria-pressed="${FSV === k}">${l}</button>`).join('')}</div>
-    <button id="fstrain" class="fstog" aria-pressed="${TRAIN}">Speed trainer</button><button id="fspima" class="fstog" aria-pressed="${PIMA}">p i m a</button>
+    <button id="fstrain" class="fstog" aria-pressed="${TRAIN}">Speed trainer</button><button id="fspima" class="fstog" aria-pressed="${PIMA}">p i m a</button><button id="fshand" class="fstog" aria-pressed="${HANDON}">Hand</button>
     <small id="fstxt">${TRAIN ? 'Starts at 50% and adds 5% every time the loop comes round, up to 100%.' : 'Mute the thumb or the fingers and play that part yourself.'}</small></div>
   <div class="keyrow"><span>Key</span><button id="kdn" aria-label="Transpose down">−</button><b id="kname">${esc(keyName())}</b><button id="kup" aria-label="Transpose up">+</button><button id="k0" class="ghostb">Original key</button></div>
   <div class="mix chs">${MODE === 'guitar' ? chan('gt', UKE ? 'Ukulele' : 'Guitar') + chan('dr', 'Drums') + chan('bs', 'Bass') + (hasKeys() ? chan('kb', 'Keys') : '') : MODE === 'bass' ? chan('bs', 'Bass') + chan('dr', 'Drums') + chan('kb', 'Keys') : chan('rh', 'Right hand') + chan('lh', 'Left hand') + chan('dr', 'Drums') + chan('bs', 'Bass')}</div>
@@ -406,7 +406,40 @@ let LAY = null, NOTES = null;
 // PRUEBA fingerstyle (28/11/2026): qué mano suena, entrenador de velocidad y letras p i m a
 let FSV = 'all', TRAIN = false, PIMA = true;
 (function () { const c = document.createElement('style'); c.textContent = '.fsrow{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:10px 0}.fsrow>span{font-weight:700;color:var(--muted);font-size:13px}.fsv{display:flex;gap:4px}.fsv button,.fstog{min-height:36px;padding:6px 10px;border-radius:10px;border:1px solid var(--line,#444);background:transparent;color:inherit;font:600 13px var(--body);cursor:pointer}.fsv button[aria-pressed=true],.fstog[aria-pressed=true]{background:var(--accent);color:#111;border-color:var(--accent)}.fsrow small{flex-basis:100%;color:var(--muted);font-size:12px}'; document.head.appendChild(c); })();
+
+// ---- PRUEBA (28/11/2026): vista de la mano derecha (p i m a) ----
+let HANDON = true; const HQ = [];
+const HCOL = {p: '#378ADD', i: '#97C459', m: '#EF9F27', a: '#D85A30'}, HX = {p: 128, i: 214, m: 252, a: 290}, HDEF = {p: 1, i: 3, m: 4, a: 5};
+const HY = st => 20 + (5 - st) * 24;   // cuerda 0 = Mi grave (abajo) … 5 = Mi agudo (arriba)
+const HST = {p: {st: 1, on: 0, pre: 0}, i: {st: 3, on: 0, pre: 0}, m: {st: 4, on: 0, pre: 0}, a: {st: 5, on: 0, pre: 0}}, SV = [0, 1, 2, 3, 4, 5].map(() => ({t: -9, d: .3, c: '#fff'}));
+function handFinger(nt, st) { const P = cur(), pf = ((P.pf || {}).gt || '').replace(/[|\s]/g, ''), c = pf[nt.s] || '.';
+  if (c === 'p' && st <= 2) return 'p'; if ('ima'.includes(c) && c !== '.' && st >= 3) return c;
+  return st <= 2 ? 'p' : st === 3 ? 'i' : st === 4 ? 'm' : 'a'; }
+window.__handNote = (t, nt, st, d) => { if (HANDON) HQ.push({t, f: handFinger(nt, st), st, d: Math.max(.22, Math.min(.9, d))}); };
+function handSvg() { const str = [0, 1, 2, 3, 4, 5].map(k => `<line x1="10" y1="${HY(k)}" x2="390" y2="${HY(k)}" stroke="#D3D1C7" stroke-width="${2.9 - k * .38}"/>`).join('');
+  const fl = ['p', 'i', 'm', 'a'].map(f => `<line id="hl_${f}" x1="345" y1="182" x2="${HX[f]}" y2="${HY(HST[f].st)}" stroke="#B4B2A9" stroke-opacity=".22" stroke-width="${f === 'p' ? 20 : 15}" stroke-linecap="round"/>`).join('');
+  const fc = ['p', 'i', 'm', 'a'].map(f => `<g id="hf_${f}"><circle r="${f === 'p' ? 14 : 12}" fill="none" stroke="${HCOL[f]}" stroke-width="2.2"/><text text-anchor="middle" dominant-baseline="central" font-weight="700" font-size="14" fill="${HCOL[f]}">${f}</text></g>`).join('');
+  return `<svg viewBox="0 0 400 168" width="100%" role="img" aria-label="Right hand: which finger plucks which string"><rect x="0" y="4" width="400" height="160" rx="12" fill="#1f1e1c"/><circle cx="60" cy="80" r="38" fill="#121110" opacity=".55"/>${str}<g id="hvib"></g>${fl}${fc}</svg>
+    <div class="hleg">${['p', 'i', 'm', 'a'].map(f => `<span><i style="background:${HCOL[f]}"></i>${f}</span>`).join('')}<small>Filled = plays now · ring = gets ready</small></div>`; }
+function handFrame() { requestAnimationFrame(handFrame); const box = $('handv'); if (!box || !ctx || !HANDON) return;
+  const now = ctx.currentTime - (typeof SYNC === 'number' ? SYNC / 1000 : 0);
+  for (const f in HST) HST[f].pre = 0;
+  for (let k = HQ.length - 1; k >= 0; k--) { const q = HQ[k];
+    if (q.t <= now) { const h = HST[q.f]; h.st = q.st; h.on = q.t + Math.min(q.d, .35); SV[q.st] = {t: q.t, d: q.d, c: HCOL[q.f]}; HQ.splice(k, 1); }
+    else if (q.t - now < .2) HST[q.f].pre = 1; else if (q.t - now > 30) HQ.splice(k, 1); }
+  for (const f in HST) { const h = HST[f], g = $('hf_' + f), l = $('hl_' + f); if (!g) continue; const y = HY(h.st), on = now < h.on;
+    const dy = on ? 3 : 0; g.setAttribute('transform', `translate(${HX[f] + (on ? 2 : 0)},${y + dy})`);
+    const c = g.firstChild, tx = c.nextSibling; c.setAttribute('fill', on ? HCOL[f] : 'none'); c.setAttribute('stroke-width', on ? 0 : h.pre ? 4 : 2.2); tx.setAttribute('fill', on ? '#111' : HCOL[f]);
+    l.setAttribute('x2', HX[f]); l.setAttribute('y2', y + dy); }
+  let vib = ''; SV.forEach((v, st) => { const e = now - v.t; if (e < 0 || e > v.d) return; const A = 4.5 * Math.exp(-e * 6), y = HY(st);
+    let d = `M10 ${y}`; for (let x = 10; x <= 390; x += 10) d += ` L${x} ${(y + A * Math.sin((x - 10) / 380 * Math.PI) * Math.sin(e * 90 + x / 18)).toFixed(1)}`;
+    vib += `<path d="${d}" fill="none" stroke="${v.c}" stroke-width="2.6" opacity="${(1 - e / v.d).toFixed(2)}"/>`; });
+  const hv = $('hvib'); if (hv) hv.innerHTML = vib; }
+requestAnimationFrame(handFrame);
+(function () { const c = document.createElement('style'); c.textContent = '#handv{margin:8px 0 4px}#handv .hleg{display:flex;gap:12px;align-items:center;flex-wrap:wrap;font:600 12px var(--body);color:var(--muted);margin-top:4px}#handv .hleg i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:4px;vertical-align:-1px}#handv .hleg small{font-weight:400}'; document.head.appendChild(c); })();
 function fsWire() {
+  { const sw = document.querySelector('.scorewrap'); if (sw && !$('handv')) { const d = document.createElement('div'); d.id = 'handv'; d.innerHTML = handSvg(); d.hidden = !HANDON; sw.after(d); } }
+  $('fshand').onclick = () => { HANDON = !HANDON; $('fshand').setAttribute('aria-pressed', HANDON); if ($('handv')) $('handv').hidden = !HANDON; };
   const P = cur(), T = (f) => { const v = Math.round(P.bpm * f); $('tempo').value = v; $('bpm').textContent = v; TPCT = f; $('pct').textContent = f !== 1 ? Math.round(f * 100) + '% · ' : ''; };
   document.querySelectorAll('.fsv button').forEach(b => b.onclick = () => { FSV = b.dataset.fsv; document.querySelectorAll('.fsv button').forEach(x => x.setAttribute('aria-pressed', x === b)); });
   $('fstrain').onclick = () => { TRAIN = !TRAIN; $('fstrain').setAttribute('aria-pressed', TRAIN); $('fstxt').textContent = TRAIN ? 'Starts at 50% and adds 5% every time the loop comes round, up to 100%.' : 'Mute the thumb or the fingers and play that part yourself.'; if (TRAIN) T(.5); };
@@ -795,6 +828,7 @@ function schedule() {
         GT_T0 = t;
         order.forEach((k, j) => { const m = nt.ps[k].m, tt = t + j * gap;
           if (FSV !== 'all' && frs[k]) { const th = frs[k][0] <= 2; if ((FSV === 'thumb') !== th) return; }
+          if (frs[k] && window.__handNote) window.__handNote(tt, nt, frs[k][0], dur);
           if (ghost) note('gmute', m, tt, .05, lv * 1.2, null, false, frs[k] ? 'gs' + frs[k][0] : null);
           else { const a = nt.art, bu = (a === 'b' || a === 'W' || a === 'Y') ? 2 : (a === 'q' || a === 'N' || a === 'K') ? 1 : a === 'G' ? 3 : a === 'J' ? 4 : a === 'L' ? 2 : a === 'O' ? (k === 0 ? 2 : 0) : a === 'o' ? (k === 0 ? 1 : 0) : 0;   // nov 2026: bends grandes, tras la cejuela y en double stops (O/o: solo la primera nota)
             const HS = !!INST.gharm && (a === 'H' || a === 'A' || a === 'I');   // 21/11/2026: armónicos con muestras reales (FluidR3 «Guitar Harmonics»)
