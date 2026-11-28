@@ -415,7 +415,14 @@ const HST = {p: {st: 1, on: 0, pre: 0}, i: {st: 3, on: 0, pre: 0}, m: {st: 4, on
 function handFinger(nt, st) { const P = cur(), pf = ((P.pf || {}).gt || '').replace(/[|\s]/g, ''), c = pf[nt.s] || '.';
   if (c === 'p' && st <= 2) return 'p'; if ('ima'.includes(c) && c !== '.' && st >= 3) return c;
   return st <= 2 ? 'p' : st === 3 ? 'i' : st === 4 ? 'm' : 'a'; }
-window.__handNote = (t, nt, st, d, fr) => { if (HANDON) HQ.push({t, f: handFinger(nt, st), st, fr: fr || 0, d: Math.max(.22, Math.min(.9, d))}); };
+window.__handNote = (t, nt, st, d, fr) => { if (HANDON) HQ.push({t, nt, f: handFinger(nt, st), st, fr: fr || 0, d: Math.max(.22, Math.min(.9, d))}); };
+// notas a la vez: cada cuerda con su dedo (la más grave, el pulgar; las de encima, i m a en orden)
+function handGroup(g) { if (g.length < 2) return; g.sort((a, b) => a.st - b.st); let rest = g;
+  if (g[0].st <= 2 || g.length >= 4) { g[0].f = 'p'; rest = g.slice(1); while (rest.length > 3) { rest[0].f = 'p'; rest = rest.slice(1); } }
+  const F = ['i', 'm', 'a']; let want = rest.map(q => q.st <= 3 ? 0 : q.st === 4 ? 1 : 2);
+  for (let k = 1; k < want.length; k++) want[k] = Math.max(want[k], want[k - 1] + 1);
+  const over = want.length ? want[want.length - 1] - 2 : 0; if (over > 0) want = want.map(w => w - over);
+  rest.forEach((q, k) => q.f = F[Math.max(0, Math.min(2, want[k]))]); }
 const RHX = {p: 71, i: 79, m: 84.5, a: 90};   // inclinados: i a la izquierda, a a la derecha; el pulgar más hacia el mástil
 function rhZone(dy) { const Y = st => 84 - st * dy;
   return ['p', 'i', 'm', 'a'].map(f => `<g class="rhf" id="nf_${f}"><circle cx="${RHX[f]}%" cy="${Y(HST[f].st)}%" r="${f === 'p' ? 9 : 8}" fill="#161514" stroke="${HCOL[f]}" stroke-width="2.2"/><text x="${RHX[f]}%" y="${Y(HST[f].st)}%" text-anchor="middle" dominant-baseline="central" font-weight="700" font-size="11" fill="${HCOL[f]}">${f}</text></g>`).join(''); }
@@ -427,16 +434,17 @@ function handSvg() { const str = [0, 1, 2, 3, 4, 5].map(k => `<line x1="10" y1="
 function handFrame() { requestAnimationFrame(handFrame); if (!ctx || !HANDON || !$('nf_p') || !FBG) return; const Yp = st => 84 - st * FBG.dy;
   const now = ctx.currentTime - (typeof SYNC === 'number' ? SYNC / 1000 : 0);
   for (const f in HST) HST[f].pre = 0;
-  for (let k = HQ.length - 1; k >= 0; k--) { const q = HQ[k];
-    if (q.t <= now) { const h = HST[q.f]; h.st = q.st; h.on = q.t + Math.min(q.d, .35); SV[q.st] = {t: q.t, d: q.d, fr: q.fr}; HQ.splice(k, 1); }
-    else if (q.t - now < .2) HST[q.f].pre = 1; else if (q.t - now > 30) HQ.splice(k, 1); }
+  const due = HQ.filter(q => q.t <= now), grp = new Map();
+  for (const q of due) { const k = Math.round(q.t * 200); if (!grp.has(k)) grp.set(k, []); grp.get(k).push(q); }
+  for (const g of grp.values()) { handGroup(g); for (const q of g) { const h = HST[q.f]; h.st = q.st; h.on = q.t + Math.min(q.d, .35); SV[q.st] = {t: q.t, d: q.d, fr: q.fr}; } }
+  for (let k = HQ.length - 1; k >= 0; k--) { const q = HQ[k]; if (q.t <= now || q.t - now > 30) HQ.splice(k, 1); else if (q.t - now < .2) HST[q.f].pre = 1; }
   for (const f in HST) { const h = HST[f], g = $('nf_' + f); if (!g) continue; const on = now < h.on, c = g.firstChild, tx = c.nextSibling, y = Yp(h.st) + '%';
     c.setAttribute('cy', y); tx.setAttribute('y', y); c.setAttribute('cx', (RHX[f] + (on ? .6 : 0)) + '%'); tx.setAttribute('x', (RHX[f] + (on ? .6 : 0)) + '%');
     c.setAttribute('fill', on ? HCOL[f] : '#161514'); c.setAttribute('stroke-width', on ? 0 : h.pre ? 4.2 : 2.2); c.setAttribute('r', (f === 'p' ? 9 : 8) + (on ? 1.5 : 0)); tx.setAttribute('fill', on ? '#111' : HCOL[f]); }
   SV.forEach((v, st) => { const el = $('sv' + st); if (!el) return; const e = now - v.t, act = e >= 0 && e <= v.d;   // la cuerda vibra desde donde la pisa la izquierda (o desde la cejuela, al aire) hasta el final
     if (act) { el.style.display = ''; el.setAttribute('x1', FBG.sx(v.fr || 0) + '%'); el.style.opacity = String(1 - .45 * e / v.d); } else if (el.style.display !== 'none') el.style.display = 'none'; }); }
 requestAnimationFrame(handFrame);
-(function () { const c = document.createElement('style'); c.textContent = '.shole{fill:#0d0c0b;stroke:#3a3835;stroke-width:1}@keyframes vibr{0%{transform:translateY(0)}25%{transform:translateY(.9px)}75%{transform:translateY(-.9px)}100%{transform:translateY(0)}}.svib{stroke:#fff36b;stroke-width:3.2;stroke-linecap:round;filter:drop-shadow(0 0 2px #ffe000) drop-shadow(0 0 6px #ffc400);animation:vibr .05s linear infinite}#handv{margin:8px 0 4px}#handv .hleg{display:flex;gap:12px;align-items:center;flex-wrap:wrap;font:600 12px var(--body);color:var(--muted);margin-top:4px}#handv .hleg i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:4px;vertical-align:-1px}#handv .hleg small{font-weight:400}'; document.head.appendChild(c); })();
+(function () { const c = document.createElement('style'); c.textContent = '.shole{fill:#0d0c0b;stroke:#3a3835;stroke-width:1}@keyframes vibr{0%{transform:translateY(0)}25%{transform:translateY(.9px)}75%{transform:translateY(-.9px)}100%{transform:translateY(0)}}.svib{stroke:#f2c84b;stroke-width:2.8;stroke-linecap:round;filter:drop-shadow(0 0 1.5px rgba(242,200,75,.55));animation:vibr .05s linear infinite}#handv{margin:8px 0 4px}#handv .hleg{display:flex;gap:12px;align-items:center;flex-wrap:wrap;font:600 12px var(--body);color:var(--muted);margin-top:4px}#handv .hleg i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:4px;vertical-align:-1px}#handv .hleg small{font-weight:400}'; document.head.appendChild(c); })();
 function fsWire() {
   $('fshand').onclick = () => { HANDON = !HANDON; $('fshand').setAttribute('aria-pressed', HANDON); drawFret(); };
   const P = cur(), T = (f) => { const v = Math.round(P.bpm * f); $('tempo').value = v; $('bpm').textContent = v; TPCT = f; $('pct').textContent = f !== 1 ? Math.round(f * 100) + '% · ' : ''; };
